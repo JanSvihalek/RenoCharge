@@ -1,0 +1,197 @@
+rules_version = '2';
+
+// Nabíjecí deník – pravidla pro Firestore.
+//
+// Zásada: klient smí sahat jen na vlastní data a relaci může uzavřít
+// jen jednou. Po ukončení je záznam neměnný a nesmazatelný, aby se dal
+// použít jako podklad pro fakturaci mimo aplikaci.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function prihlasen() {
+      return request.auth != null;
+    }
+
+    function ja() {
+      return request.auth.uid;
+    }
+
+    // Nová podoba dokumentu.
+    function nova() {
+      return request.resource.data;
+    }
+
+    // Podoba dokumentu před zápisem.
+    function stara() {
+      return resource.data;
+    }
+
+    function otevrenaRelace(id) {
+      return exists(/databases/$(database)/documents/nabijeni/$(id))
+        && get(/databases/$(database)/documents/nabijeni/$(id)).data.stav == 'probiha';
+    }
+
+    // Metadata fotky: cesta ve Storage, otisk a čas pořízení z EXIF.
+    function platnaFoto(foto) {
+      return foto.keys().hasOnly(['path', 'sha256', 'porizeno_at'])
+        && foto.keys().hasAll(['path', 'sha256', 'porizeno_at'])
+        && foto.path is string
+        && foto.path.size() > 0
+        && foto.sha256 is string
+        && foto.sha256.size() == 64
+        && foto.porizeno_at is timestamp;
+    }
+
+    // ── Profil uživatele ───────────────────────────────────────────────
+    match /uzivatele/{uid} {
+      function mujProfil() {
+        return prihlasen() && uid == ja();
+      }
+
+      function povolenaPole() {
+        return nova().keys().hasOnly([
+          'jmeno', 'email', 'osobni_cislo', 'vytvoreno_at',
+          'onboarding_at', 'aktivni_nabijeni_id'
+        ])
+        && nova().jmeno is string
+        && nova().jmeno.size() <= 80
+        && nova().email is string
+        && (!nova().keys().hasAny(['osobni_cislo'])
+            || nova().osobni_cislo == null
+            || (nova().osobni_cislo is string
+                && nova().osobni_cislo.size() > 0
+                && nova().osobni_cislo.size() <= 40));
+      }
+
+      allow read: if mujProfil();
+
+      allow create: if mujProfil() && povolenaPole();
+
+      // `vytvoreno_at` se zapisuje jen jednou, při vzniku profilu.
+      allow update: if mujProfil()
+        && povolenaPole()
+        && nova().vytvoreno_at == stara().vytvoreno_at;
+
+      allow delete: if false;
+
+      // ── Vozidla uživatele ────────────────────────────────────────────
+      match /vozidla/{vozidloId} {
+        function moje() {
+          return prihlasen() && uid == ja();
+        }
+
+        allow read: if moje();
+
+        allow create, update: if moje()
+          && nova().keys().hasOnly(['spz', 'znacka_model'])
+          && nova().spz is string
+          && nova().spz.size() > 0
+          && nova().spz.size() <= 20
+          && (nova().znacka_model == null
+              || (nova().znacka_model is string
+                  && nova().znacka_model.size() <= 60));
+
+        // Vozidlo jde ze seznamu odebrat – SPZ je v relacích uložená
+        // jako kopie textu, takže historie tím neutrpí.
+        allow delete: if moje();
+      }
+    }
+
+    // ── Stanice ────────────────────────────────────────────────────────
+    // Spravuje je správce mimo aplikaci (konzole nebo admin SDK).
+    match /stanice/{staniceId} {
+      allow read: if prihlasen();
+      allow write: if false;
+    }
+
+    // ── Nabíjecí relace ────────────────────────────────────────────────
+    match /nabijeni/{relaceId} {
+      function mojeRelace() {
+        return prihlasen() && stara().uid == ja();
+      }
+
+      allow read: if mojeRelace();
+
+      // Založit lze výhradně relaci ve stavu 'probiha' a bez koncových
+      // hodnot – ty se doplní až při ukončení.
+      allow create: if prihlasen()
+        && nova().uid == ja()
+        && nova().stav == 'probiha'
+        && nova().keys().hasOnly([
+          'uid', 'spz', 'vozidlo_id', 'stanice_id', 'konektor',
+          'kwh_start', 'kwh_end', 'zahajeno', 'ukonceno',
+          'foto_start', 'foto_end', 'stav',
+          'vytvoreno_at', 'aktualizovano_at'
+        ])
+        && nova().keys().hasAll([
+          'uid', 'spz', 'vozidlo_id', 'stanice_id', 'konektor',
+          'kwh_start', 'zahajeno', 'foto_start', 'stav'
+        ])
+        && nova().spz is string
+        && nova().spz.size() > 0
+        && nova().vozidlo_id is string
+        && nova().stanice_id is string
+        && nova().konektor in ['A', 'B']
+        && nova().kwh_start is number
+        && nova().kwh_start >= 0
+        && nova().zahajeno is timestamp
+        && platnaFoto(nova().foto_start)
+        && nova().kwh_end == null
+        && nova().ukonceno == null
+        && nova().foto_end == null;
+
+      // Jediná povolená změna je ukončení. Měnit se smí jen koncové
+      // hodnoty; uid ani kwh_start nikdy.
+      allow update: if mojeRelace()
+        && stara().stav == 'probiha'
+        && nova().stav == 'dokonceno'
+        && nova().uid == stara().uid
+        && nova().kwh_start == stara().kwh_start
+        && nova().spz == stara().spz
+        && nova().vozidlo_id == stara().vozidlo_id
+        && nova().stanice_id == stara().stanice_id
+        && nova().konektor == stara().konektor
+        && nova().zahajeno == stara().zahajeno
+        && nova().foto_start == stara().foto_start
+        && nova().kwh_end is number
+        && nova().kwh_end > stara().kwh_start
+        && nova().ukonceno is timestamp
+        && platnaFoto(nova().foto_end);
+
+      allow delete: if false;
+    }
+
+    // ── Zámky konektorů ────────────────────────────────────────────────
+    // Pomocná evidence, díky které jde pravidlo „na jednom konektoru
+    // nejvýš jedna otevřená relace" vynutit transakcí. Klientské SDK
+    // totiž umí v transakci číst jen konkrétní dokument, ne dotaz.
+    match /zamky_konektoru/{zamekId} {
+      function tvarZamku() {
+        return nova().keys().hasOnly([
+          'nabijeni_id', 'uid', 'stanice_id', 'konektor', 'zahajeno'
+        ])
+        && nova().uid == ja()
+        && nova().nabijeni_id is string
+        && nova().konektor in ['A', 'B']
+        && zamekId == nova().stanice_id + '__' + nova().konektor;
+      }
+
+      // Zámek musí být čitelný všem přihlášeným, jinak by se souběh
+      // dvou telefonů nedal poznat.
+      allow read: if prihlasen();
+
+      // Zámek vzniká v jedné transakci s relací, takže se v tu chvíli
+      // ještě nedá ověřit proti dokumentu relace.
+      allow create: if prihlasen() && tvarZamku();
+
+      // Přepsat jde jen zámek, jehož relace už neběží – zámek živé
+      // relace nikdo cizí nepřebije.
+      allow update: if prihlasen()
+        && tvarZamku()
+        && !otevrenaRelace(stara().nabijeni_id);
+
+      allow delete: if prihlasen()
+        && (stara().uid == ja() || !otevrenaRelace(stara().nabijeni_id));
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "750192659122",
+    "project_id": "renocharge",
+    "storage_bucket": "renocharge.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750192659122:android:2ae0c5fad5f6a536b117ab",
+        "android_client_info": {
+          "package_name": "dev.svihalek.renocharge"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcmOnkCSMlIqHHav4tLVc8Yy2p4ppvcWc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

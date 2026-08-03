@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "nabijeni",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "zahajeno", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "nabijeni",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "stav", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

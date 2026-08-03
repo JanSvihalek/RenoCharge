@@ -1,0 +1,29 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "renocharge",
+          "appId": "1:750192659122:android:2ae0c5fad5f6a536b117ab",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "renocharge",
+          "configurations": {
+            "android": "1:750192659122:android:2ae0c5fad5f6a536b117ab",
+            "ios": "1:750192659122:ios:30c426317ec8fe79b117ab"
+          }
+        }
+      }
+    }
+  }
+}

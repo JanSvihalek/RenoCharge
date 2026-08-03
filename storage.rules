@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// Nabíjecí deník – pravidla pro Firebase Storage.
+//
+// Ve Storage leží výhradně fotky počítadla, vždy na cestě
+// `nabijeni/{relaceId}/{start|end}.jpg`. Co nemá pravidlo, je zakázané.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function prihlasen() {
+      return request.auth != null;
+    }
+
+    function ja() {
+      return request.auth.uid;
+    }
+
+    function relaceExistuje(id) {
+      return firestore.exists(/databases/(default)/documents/nabijeni/$(id));
+    }
+
+    function relace(id) {
+      return firestore.get(/databases/(default)/documents/nabijeni/$(id)).data;
+    }
+
+    function mojeRelace(id) {
+      return relaceExistuje(id) && relace(id).uid == ja();
+    }
+
+    function mojeOtevrenaRelace(id) {
+      return mojeRelace(id) && relace(id).stav == 'probiha';
+    }
+
+    function platnyObrazek() {
+      return request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+    }
+
+    match /nabijeni/{relaceId}/{soubor} {
+
+      allow read: if prihlasen() && mojeRelace(relaceId);
+
+      // Počáteční fotka se nahrává ještě před založením dokumentu relace
+      // (ID se generuje dopředu, aby se odvodila cesta). Jakmile
+      // dokument existuje, je fotka neměnná.
+      //
+      // Koncová fotka jde nahrát jen do vlastní, dosud otevřené relace.
+      allow create, update: if prihlasen()
+        && platnyObrazek()
+        && (
+          (soubor == 'start.jpg' && !relaceExistuje(relaceId))
+          || (soubor == 'end.jpg' && mojeOtevrenaRelace(relaceId))
+        );
+
+      // Úklid po neúspěšném zahájení: relace nevznikla, fotka po sobě
+      // nemá zůstat. Fotky existujících relací se nemažou.
+      allow delete: if prihlasen()
+        && soubor == 'start.jpg'
+        && !relaceExistuje(relaceId);
+    }
+  }
+}
