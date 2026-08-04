@@ -24,6 +24,20 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Prohlášení o šifrování pro exportní pravidla. Bez tohohle klíče se
+	     App Store Connect ptá u každého nahraného buildu znovu a dokud
+	     nedostane odpověď, nejde build poslat testerům.
+
+	     `false` znamená, že aplikace nepoužívá šifrování nad rámec výjimek.
+	     Odpovídá to skutečnosti: veškerá komunikace s Firebase jde po
+	     běžném HTTPS, které poskytuje systém, a SHA-256 otisk fotky je
+	     hashovací funkce, ne šifrování. Aplikace nemá vlastní klíče ani
+	     šifrované lokální úložiště.
+
+	     Kdyby někdy přibylo skutečné šifrování (třeba šifrovaná databáze
+	     na zařízení), je potřeba tuhle hodnotu přehodnotit. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
