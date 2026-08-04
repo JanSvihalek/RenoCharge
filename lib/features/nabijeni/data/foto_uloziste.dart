@@ -46,6 +46,7 @@ class FotoUloziste {
                 'sha256': foto.sha256,
                 'porizeno_at': foto.porizenoAt.toUtc().toIso8601String(),
                 'relace_id': relaceId,
+                'zdroj': foto.zdroj.klic,
               },
             ),
           );
@@ -61,6 +62,7 @@ class FotoUloziste {
       path: cilovaCesta,
       sha256: foto.sha256,
       porizenoAt: foto.porizenoAt,
+      zdroj: foto.zdroj,
     );
   }
 

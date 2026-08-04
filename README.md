@@ -49,20 +49,6 @@ konkrétní projekt.
    firebase deploy --only firestore:rules,firestore:indexes,storage
    ```
 
-5. **Stanice.** Kolekce `stanice` je pro klienta jen ke čtení, plní se
-   admin SDK. Seznam upravte v [tools/stanice.json](tools/stanice.json)
-   (výchozí je 15 stanic s konektory A/B) a spusťte:
-   ```bash
-   cd tools
-   npm install
-   set GOOGLE_APPLICATION_CREDENTIALS=C:\cesta\ke\klici.json
-   node seed_stanice.mjs --project renocharge
-   ```
-   Klíč servisního účtu se stahuje v konzoli: *Nastavení projektu →
-   Servisní účty → Vygenerovat nový soukromý klíč*. Obchází security
-   rules, takže **nepatří do gitu** – `.gitignore` na běžné názvy pamatuje.
-   Skript je idempotentní, dokumenty mají pevná ID.
-
 ```bash
 flutter pub get
 flutter run
@@ -124,14 +110,12 @@ uzivatele/{uid}                jmeno, email, osobni_cislo?, vytvoreno_at,
                                onboarding_at?,           ← viz Onboarding
                                aktivni_nabijeni_id?      ← viz Rozhodnutí
 uzivatele/{uid}/vozidla/{id}   spz, znacka_model?
-stanice/{id}                   nazev, konektory[{id,nazev}]   (jen ke čtení)
-nabijeni/{id}                  uid, spz, vozidlo_id, stanice_id, konektor,
+nabijeni/{id}                  uid, spz, vozidlo_id,
                                kwh_start, kwh_end?, zahajeno, ukonceno?,
-                               foto_start{path,sha256,porizeno_at}, foto_end?,
+                               foto_start{path,sha256,porizeno_at,zdroj},
+                               foto_end?,
                                stav: 'probiha'|'dokonceno',
                                vytvoreno_at, aktualizovano_at
-zamky_konektoru/{stanice}__{A|B}   nabijeni_id, uid, stanice_id, konektor,
-                                   zahajeno              ← viz Rozhodnutí
 ```
 
 Relace je **jeden dokument**. Vzniká při zahájení se stavem `probiha`,
@@ -143,14 +127,13 @@ Dva samostatné záznamy nikdy nevznikají.
 | Pravidlo | Kde |
 |---|---|
 | Jeden uživatel = nejvýš jedna otevřená relace | transakce + `uzivatele/{uid}.aktivni_nabijeni_id`; UI místo výběru nabídne ukončení té rozdělané |
-| Jeden konektor = nejvýš jedna otevřená relace | transakce + kolekce `zamky_konektoru` |
 | `kwh_end > kwh_start` | pole na obrazovce focení, transakce i `firestore.rules` |
 | Po ukončení se záznamem nehne | `firestore.rules`: update jen ze stavu `probiha`, delete zakázaný |
 
-Obě „nejvýš jedna" pravidla se dají porušit jen souběhem dvou telefonů,
-proto je hlídá Firestore transakce, ne dotaz před zápisem. Klientské SDK
-ale umí v transakci číst pouze konkrétní dokument (ne dotaz) – odtud obě
-pomocné evidence popsané níže.
+Pravidlo „nejvýš jedna" se dá porušit jen souběhem dvou telefonů, proto
+ho hlídá Firestore transakce, ne dotaz před zápisem. Klientské SDK ale
+umí v transakci číst pouze konkrétní dokument (ne dotaz) – odtud pomocné
+pole `aktivni_nabijeni_id` popsané níže.
 
 ## Onboarding
 
@@ -175,17 +158,22 @@ uživatel opraví na tvar s diakritikou.
 
 ## Rozhodnutí, která zadání nechalo otevřená
 
-**`aktivni_nabijeni_id` na profilu a kolekce `zamky_konektoru`.**
-Zadaný datový model je neobsahuje; bez nich se ale požadavek „kontroluj
-to transakcí, ne dotazem" splnit nedá, protože `Transaction.get` přijímá
-jen `DocumentReference`. Obojí je čistě technická evidence, žádná data
-navíc – zámek vzniká i zaniká ve stejné transakci jako relace.
+**Stanice a konektor se nezadávají.** Zadání s nimi počítalo, ale
+nabíječky v areálu zatím nejsou nijak označené ani očíslované, takže by
+uživatel vybíral z položek, které v reálu nerozezná. Do doby, než
+označené budou, se zaznamenává jen vozidlo a stav počítadla.
 
-*Známé omezení:* zámek zakládá klient, takže si teoreticky může zabrat
-konektor, na kterém nenabíjí. Pravidla to částečně vyvažují – zámek,
-jehož relace neběží, smí přepsat kdokoli, takže blokace není trvalá.
-Neprůstřelné řešení je založit zámek z Cloud Functions; ve fázi 1 to
-zadání nepředpokládá.
+Nabíjet naráz může víc aut, takže s tím padl i zámek konektoru – jediné
+pravidlo o jedinečnosti je „jeden uživatel = jedna otevřená relace".
+Až budou nabíječky označené, vrátí se to jako přidání pole do relace
+a jednoho kroku ve výběru; podobu z doby, kdy to v projektu bylo, má git
+v commitu předcházejícím tuhle změnu.
+
+**`aktivni_nabijeni_id` na profilu.** Zadaný datový model ho neobsahuje;
+bez něj se ale požadavek „kontroluj to transakcí, ne dotazem" splnit
+nedá, protože `Transaction.get` přijímá jen `DocumentReference`. Je to
+čistě technická evidence, žádná data navíc – vzniká i zaniká ve stejné
+transakci jako relace.
 
 **Čas pořízení fotky.** `foto.porizeno_at` se čte z EXIF a slouží zároveň
 jako `zahajeno` / `ukonceno` relace – je to okamžik, kdy se počítadlo
@@ -194,6 +182,19 @@ překomprimuje a EXIF na části zařízení zahodí; v takovém případě se
 použije čas, kdy fotoaparát snímek vrátil (`PorizenaFotografie.casZExif`
 říká, který z obou to byl). Pokud musí být čas pořízení průkazný,
 je potřeba fotit vlastním `camera` pluginem a EXIF si zapisovat sám.
+
+**Fotka jde vzít i z galerie.** Focení přímo v aplikaci je hlavní cesta,
+ale když se nepovede (rozbitý fotoaparát, snímek pořízený dřív), dá se
+vybrat hotová fotka z telefonu. Nese to dva důsledky, které aplikace
+přiznává místo aby je schovala:
+
+* U snímku z galerie je EXIF čas jediný údaj o tom, kdy fotka vznikla –
+  může to být před týdnem. Obrazovka focení proto u vybrané fotky ukáže
+  datum a čas pořízení, ať uživatel potvrzuje to, co se opravdu zapíše.
+  Když EXIF chybí, řekne to rovnou.
+* Do metadat se ukládá `zdroj` (`fotoaparat` / `galerie`), protože fotka
+  z galerie je slabší doklad – mohla vzniknout kdykoli a kdekoli. Pro
+  schvalování mimo aplikaci je to podstatný rozdíl.
 
 **Rekapitulace se zapisuje až tlačítkem „Dokončit".** Do té doby je
 relace pořád otevřená a uživatel se může vrátit. Odpovídá to prototypu.
@@ -208,9 +209,11 @@ jako prototyp. Trvalé uložení by znamenalo přidat `shared_preferences`.
 ## Focení a OCR
 
 Fotoaparát se otevře hned po vstupu na obrazovku focení – uživatel stojí
-u nabíječky a nemá důvod ťukat na další tlačítko. Po vyfocení se snímek
-zmenší na 1600 px (kvalita 80), spočítá se SHA-256 přesně těch bajtů,
-které jdou do Storage, a on-device OCR se pokusí najít hodnotu.
+u nabíječky a nemá důvod ťukat na další tlačítko. Když ho zavře, zůstane
+na obrazovce s volbou mezi spouští a galerií; ven vede křížek nahoře.
+Po vyfocení se snímek zmenší na 1600 px (kvalita 80), spočítá se SHA-256
+přesně těch bajtů, které jdou do Storage, a on-device OCR se pokusí najít
+hodnotu.
 
 OCR je **pomůcka, ne autorita**: pole je vždy přepisovatelné a bez
 potvrzení tlačítkem se nikam nezapíše. Když se číslo přečíst nepodaří,

@@ -10,58 +10,57 @@ import 'nabijeni_providery.dart';
 
 /// Rozpracovaná volba na obrazovce zahájení nabíjení.
 class ZahajeniStav {
-  const ZahajeniStav({
-    this.vozidloId,
-    this.staniceId,
-    this.konektor,
-    this.odesilani = false,
-    this.chyba,
-  });
+  const ZahajeniStav({this.vozidloId, this.odesilani = false, this.chyba});
 
   final String? vozidloId;
-  final String? staniceId;
-  final String? konektor;
   final bool odesilani;
   final AppChyba? chyba;
 
-  /// Dokud nejsou vybrané všechny tři volby, tlačítko dál nepustí.
-  bool get jeKompletni =>
-      vozidloId != null && staniceId != null && konektor != null;
+  /// Dokud není vybrané vozidlo, tlačítko dál nepustí.
+  bool get jeKompletni => vozidloId != null;
 
   ZahajeniStav kopiruj({
     String? vozidloId,
-    String? staniceId,
-    String? konektor,
     bool? odesilani,
     AppChyba? chyba,
     bool vymazatChybu = false,
   }) => ZahajeniStav(
     vozidloId: vozidloId ?? this.vozidloId,
-    staniceId: staniceId ?? this.staniceId,
-    konektor: konektor ?? this.konektor,
     odesilani: odesilani ?? this.odesilani,
     chyba: vymazatChybu ? null : (chyba ?? this.chyba),
   );
 }
 
-/// Řídí výběr vozidla/stanice/konektoru a samotné založení relace.
+/// Řídí výběr vozidla a samotné založení relace.
 class ZahajeniController extends Notifier<ZahajeniStav> {
   @override
-  ZahajeniStav build() => const ZahajeniStav();
+  ZahajeniStav build() {
+    // Seznam vozidel může v tuhle chvíli ještě běžet ze sítě, proto se
+    // předvýběr dohání i po jeho dorazení. `listen` místo `watch` schválně:
+    // `watch` by při každé změně seznamu spustil build znovu a smazal tím
+    // rozdělaný výběr.
+    ref.listen(vozidlaProvider, (_, novy) {
+      if (state.vozidloId == null) {
+        final jedine = _jedineVozidlo(novy.value);
+        if (jedine != null) state = state.kopiruj(vozidloId: jedine);
+      }
+    });
+    return _vychozi();
+  }
 
-  void zacniZnovu() => state = const ZahajeniStav();
+  /// S jediným vozidlem není co vybírat – předvybere se, ať uživatel
+  /// u nabíječky jen potvrdí. Obrazovka zůstává, aby bylo vidět, na které
+  /// auto se záznam píše.
+  ZahajeniStav _vychozi() =>
+      ZahajeniStav(vozidloId: _jedineVozidlo(ref.read(vozidlaProvider).value));
+
+  static String? _jedineVozidlo(List<Vozidlo>? vozidla) =>
+      vozidla != null && vozidla.length == 1 ? vozidla.single.id : null;
+
+  void zacniZnovu() => state = _vychozi();
 
   void vyberVozidlo(String id) =>
       state = state.kopiruj(vozidloId: id, vymazatChybu: true);
-
-  void vyberStanici(String id) {
-    // Konektor patří ke konkrétní stanici – při změně stanice se výběr
-    // konektoru ruší, ať uživatel nepotvrdí kombinaci, kterou neviděl.
-    state = ZahajeniStav(vozidloId: state.vozidloId, staniceId: id);
-  }
-
-  void vyberKonektor(String konektor) =>
-      state = state.kopiruj(konektor: konektor, vymazatChybu: true);
 
   /// Nahraje počáteční fotku a založí relaci ve stavu `probiha`.
   /// Vrací `true`, pokud se to povedlo.
@@ -111,8 +110,6 @@ class ZahajeniController extends Notifier<ZahajeniStav> {
           uid: uid,
           spz: vozidlo.spz,
           vozidloId: volba.vozidloId!,
-          staniceId: volba.staniceId!,
-          konektor: volba.konektor!,
           kwhStart: kwhStart,
           fotoStart: metadata,
         );
@@ -121,7 +118,7 @@ class ZahajeniController extends Notifier<ZahajeniStav> {
         await uloziste.smazTiseji(metadata.path);
         rethrow;
       }
-      state = const ZahajeniStav();
+      state = _vychozi();
       return true;
     } catch (chyba) {
       state = state.kopiruj(odesilani: false, chyba: AppChyba.zFirebase(chyba));

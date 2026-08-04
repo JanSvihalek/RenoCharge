@@ -131,7 +131,7 @@ class _KartaProbihajiciRelace extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final popisky = popiskyRelace(ref, relace);
+    final vozidlo = popisekVozidla(ref, relace);
     final ted = ref.watch(tikProvider).value ?? DateTime.now();
     final b = context.barvy;
 
@@ -144,18 +144,11 @@ class _KartaProbihajiciRelace extends ConsumerWidget {
           children: [
             const OdznakStavu(StavRelace.probiha),
             const SizedBox(height: 12),
-            Text(
-              popisky.vozidlo,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text(vozidlo, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _Udaj(popisek: 'Stanice', hodnota: popisky.stanice),
-                ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: _Udaj(
                     popisek: 'Zahájeno',
@@ -164,12 +157,14 @@ class _KartaProbihajiciRelace extends ConsumerWidget {
                         '${Format.doba(relace.doba(ted: ted))}',
                   ),
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _Udaj(
+                    popisek: 'Počáteční stav',
+                    hodnota: '${Format.kwh(relace.kwhStart)} kWh',
+                  ),
+                ),
               ],
-            ),
-            const SizedBox(height: 12),
-            _Udaj(
-              popisek: 'Počáteční stav',
-              hodnota: '${Format.kwh(relace.kwhStart)} kWh',
             ),
             const SizedBox(height: 16),
             PrimarniTlacitko(

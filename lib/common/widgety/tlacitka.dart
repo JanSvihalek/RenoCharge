@@ -124,14 +124,19 @@ class OdkazoveTlacitko extends StatelessWidget {
     super.key,
     required this.popisek,
     required this.onTap,
+    this.barva,
   });
 
   final String popisek;
   final VoidCallback? onTap;
 
+  /// Pro tlačítka mimo motiv – třeba na tmavém hledáčku fotoaparátu,
+  /// kde by se barva ze světlé palety ztratila.
+  final Color? barva;
+
   @override
   Widget build(BuildContext context) {
-    final b = context.barvy;
+    final barvaTextu = barva ?? context.barvy.textDim;
     return _Stisk(
       aktivni: onTap != null,
       onTap: onTap,
@@ -144,9 +149,9 @@ class OdkazoveTlacitko extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: b.textDim,
+            color: barvaTextu,
             decoration: TextDecoration.underline,
-            decorationColor: b.textDim,
+            decorationColor: barvaTextu,
           ),
         ),
       ),
@@ -197,7 +202,7 @@ class IkonoveTlacitko extends StatelessWidget {
   }
 }
 
-/// Volba ze seznamu (vozidlo, stanice, konektor). Vybraná položka má
+/// Volba ze seznamu (například vozidlo). Vybraná položka má
 /// zvýrazněný okraj v akcentní barvě.
 class VolbaKarta extends StatelessWidget {
   const VolbaKarta({

@@ -12,11 +12,10 @@ import '../../vozidla/application/vozidla_providery.dart';
 import '../application/nabijeni_providery.dart';
 import '../application/zahajeni_controller.dart';
 import '../domain/relace.dart';
-import '../domain/stanice.dart';
 import 'foceni_obrazovka.dart';
 
-/// Výběr vozidla, stanice a konektoru. Dokud nejsou vybrané všechny tři
-/// volby, tlačítko do dalšího kroku nepustí.
+/// Výběr vozidla. Stanice ani konektor se nezadávají – nabíječky v areálu
+/// zatím nejsou nijak označené, viz README.
 class ZahajeniObrazovka extends ConsumerWidget {
   const ZahajeniObrazovka({super.key});
 
@@ -92,17 +91,6 @@ class _Vyber extends ConsumerWidget {
     final stav = ref.watch(zahajeniControllerProvider);
     final rizeni = ref.read(zahajeniControllerProvider.notifier);
     final vozidla = ref.watch(vozidlaProvider);
-    final stanice = ref.watch(staniceProvider);
-
-    final vybranaStanice = stav.staniceId == null
-        ? null
-        : ref.watch(mapaStanicProvider)[stav.staniceId];
-    final konektory =
-        vybranaStanice?.konektory ??
-        const [
-          Konektor(id: 'A', nazev: 'Konektor A'),
-          Konektor(id: 'B', nazev: 'Konektor B'),
-        ];
 
     return Column(
       children: [
@@ -153,50 +141,6 @@ class _Vyber extends ConsumerWidget {
                 ),
                 _ => const _Nacita(),
               },
-              const NadpisSekce('Stanice'),
-              switch (stanice) {
-                AsyncError() => ChybovyBlok(
-                  zprava: 'Seznam stanic se nepodařilo načíst.',
-                  onZkusitZnovu: () => ref.invalidate(staniceProvider),
-                ),
-                AsyncData(:final value) when value.isEmpty => const PrazdnyStav(
-                  text:
-                      'V areálu zatím není evidovaná žádná stanice. '
-                      'Ozvěte se prosím správci.',
-                ),
-                AsyncData(:final value) => _MrizkaStanic(
-                  stanice: value,
-                  vybranaId: stav.staniceId,
-                  onVyber: rizeni.vyberStanici,
-                ),
-                _ => const _Nacita(),
-              },
-              const NadpisSekce('Konektor'),
-              Row(
-                children: [
-                  for (final k in konektory) ...[
-                    Expanded(
-                      child: VolbaKarta(
-                        vybrano: k.id == stav.konektor,
-                        vyplnitPriVyberu: true,
-                        vycentrovat: true,
-                        vyska: Rozmery.tlacitkoVelke,
-                        onTap: () => rizeni.vyberKonektor(k.id),
-                        child: Text(
-                          k.nazev,
-                          style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(
-                                color: k.id == stav.konektor
-                                    ? context.barvy.accentText
-                                    : context.barvy.text,
-                              ),
-                        ),
-                      ),
-                    ),
-                    if (k != konektory.last) const SizedBox(width: 10),
-                  ],
-                ],
-              ),
               if (stav.chyba != null) ...[
                 const SizedBox(height: 18),
                 ChybovyBlok(zprava: stav.chyba!.zprava),
@@ -232,53 +176,6 @@ class _Vyber extends ConsumerWidget {
       ukazInfo(context, 'Nabíjení bylo zahájeno.');
     }
     // Chyba zůstává ve stavu a vykreslí se nad patou obrazovky.
-  }
-}
-
-class _MrizkaStanic extends StatelessWidget {
-  const _MrizkaStanic({
-    required this.stanice,
-    required this.vybranaId,
-    required this.onVyber,
-  });
-
-  final List<Stanice> stanice;
-  final String? vybranaId;
-  final ValueChanged<String> onVyber;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      itemCount: stanice.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: Rozmery.sloupcuStanic,
-        mainAxisSpacing: Rozmery.mezeraStanic,
-        crossAxisSpacing: Rozmery.mezeraStanic,
-        mainAxisExtent: Rozmery.dotykMin,
-      ),
-      itemBuilder: (context, i) {
-        final s = stanice[i];
-        final vybrano = s.id == vybranaId;
-        return VolbaKarta(
-          vybrano: vybrano,
-          vycentrovat: true,
-          vyska: Rozmery.dotykMin,
-          onTap: () => onVyber(s.id),
-          child: Text(
-            s.nazev,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: vybrano ? context.barvy.text : context.barvy.textDim,
-            ),
-          ),
-        );
-      },
-    );
   }
 }
 

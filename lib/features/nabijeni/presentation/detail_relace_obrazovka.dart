@@ -62,7 +62,7 @@ class _Obsah extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final popisky = popiskyRelace(ref, relace);
+    final vozidlo = popisekVozidla(ref, relace);
     final spotreba = relace.spotreba;
 
     return ListView(
@@ -103,8 +103,7 @@ class _Obsah extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                 child: Column(
                   children: [
-                    RadekDat(popisek: 'Vozidlo', hodnota: popisky.vozidlo),
-                    RadekDat(popisek: 'Stanice', hodnota: popisky.stanice),
+                    RadekDat(popisek: 'Vozidlo', hodnota: vozidlo),
                     RadekDat(
                       popisek: 'Datum',
                       hodnota: Format.datum(relace.zahajeno),

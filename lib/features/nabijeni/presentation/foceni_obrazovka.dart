@@ -12,6 +12,7 @@ import '../../../common/widgety/tlacitka.dart';
 import '../application/foto_sluzba.dart';
 import '../application/ocr_sluzba.dart';
 import '../domain/porizena_fotografie.dart';
+import 'widgety/puvod_fotky.dart';
 
 enum RezimFoceni {
   zahajeni('Vyfoťte počítadlo'),
@@ -73,14 +74,18 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     super.dispose();
   }
 
-  Future<void> _vyfot() async {
+  Future<void> _vyfot() => _nacti(ZdrojFoto.fotoaparat);
+
+  Future<void> _zGalerie() => _nacti(ZdrojFoto.galerie);
+
+  Future<void> _nacti(ZdrojFoto zdroj) async {
     if (_faze == _Faze.zpracovava) return;
     setState(() {
       _faze = _Faze.zpracovava;
       _chyba = null;
     });
     try {
-      final foto = await ref.read(fotoSluzbaProvider).vyfotPocitadlo();
+      final foto = await ref.read(fotoSluzbaProvider).nactiPocitadlo(zdroj);
       final hodnota = await ref
           .read(ocrSluzbaProvider)
           .najdiHodnotu(foto.cestaVSouborovemSystemu);
@@ -94,13 +99,9 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
       });
     } on FoceniZruseno {
       if (!mounted) return;
-      // Zrušené focení vrací obrazovku do výchozího stavu; když ještě
-      // žádná fotka není, nemá smysl tu uživatele držet.
-      if (_foto == null) {
-        Navigator.of(context).pop();
-      } else {
-        setState(() => _faze = _Faze.vysledek);
-      }
+      // Zrušený výběr obrazovku nezavírá – uživatel se tím dostane
+      // k volbě mezi fotoaparátem a galerií. Ven vede křížek nahoře.
+      setState(() => _faze = _foto == null ? _Faze.pripraveno : _Faze.vysledek);
     } catch (chyba) {
       if (!mounted) return;
       setState(() => _faze = _foto == null ? _Faze.pripraveno : _Faze.vysledek);
@@ -191,24 +192,35 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
 
   Widget _spoust() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 28),
-      child: Center(
-        child: Semantics(
-          button: true,
-          label: 'Vyfotit počítadlo',
-          child: GestureDetector(
-            onTap: _vyfot,
-            child: Container(
-              width: Rozmery.spoustZaverky,
-              height: Rozmery.spoustZaverky,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white24, width: 5),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            label: 'Vyfotit počítadlo',
+            child: GestureDetector(
+              onTap: _vyfot,
+              child: Container(
+                width: Rozmery.spoustZaverky,
+                height: Rozmery.spoustZaverky,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24, width: 5),
+                ),
               ),
             ),
           ),
-        ),
+          const SizedBox(height: 4),
+          // Panel stojí na tmavém hledáčku, proto barva natvrdo –
+          // barvy z motivu by se tu podle světlého režimu ztratily.
+          OdkazoveTlacitko(
+            popisek: 'Vybrat fotku z galerie',
+            barva: Colors.white70,
+            onTap: _zGalerie,
+          ),
+        ],
       ),
     );
   }
@@ -243,10 +255,12 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     _PoleHodnoty(pole: _pole, onZmena: _zahodChybu),
     const SizedBox(height: 8),
     _Popisek('Zkontrolujte číslo a v případě potřeby jej opravte.'),
+    PuvodFotky(_foto!),
     ?_chybovyText(),
     const SizedBox(height: 4),
     PrimarniTlacitko(popisek: 'Potvrdit stav', vyska: 58, onTap: _potvrd),
     OdkazoveTlacitko(popisek: 'Vyfotit znovu', onTap: _vyfot),
+    OdkazoveTlacitko(popisek: 'Vybrat jinou z galerie', onTap: _zGalerie),
   ];
 
   List<Widget> _obsahNeprecteno() {
@@ -266,8 +280,10 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
         'Zkuste to znovu s lepším osvětlením, nebo zadejte hodnotu ručně. '
         'Ručně zadaná hodnota platí stejně jako přečtená.',
       ),
+      PuvodFotky(_foto!),
       const SizedBox(height: 4),
       PrimarniTlacitko(popisek: 'Vyfotit znovu', vyska: 58, onTap: _vyfot),
+      OdkazoveTlacitko(popisek: 'Vybrat jinou z galerie', onTap: _zGalerie),
       if (!_rucniZadavani)
         OdkazoveTlacitko(
           popisek: 'Zadat hodnotu ručně',

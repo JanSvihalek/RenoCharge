@@ -4,32 +4,14 @@ import '../../../common/firebase/firebase_providery.dart';
 import '../../auth/application/auth_providery.dart';
 import '../data/foto_uloziste.dart';
 import '../data/nabijeni_repository.dart';
-import '../data/stanice_repository.dart';
 import '../domain/relace.dart';
-import '../domain/stanice.dart';
 
 final nabijeniRepositoryProvider = Provider<NabijeniRepository>((ref) {
   return NabijeniRepository(db: ref.watch(firestoreProvider));
 });
 
-final staniceRepositoryProvider = Provider<StaniceRepository>((ref) {
-  return StaniceRepository(db: ref.watch(firestoreProvider));
-});
-
 final fotoUlozisteProvider = Provider<FotoUloziste>((ref) {
   return FotoUloziste(storage: ref.watch(storageProvider));
-});
-
-/// Seznam stanic v areálu.
-final staniceProvider = StreamProvider<List<Stanice>>((ref) {
-  if (ref.watch(uidProvider) == null) return Stream.value(const <Stanice>[]);
-  return ref.watch(staniceRepositoryProvider).sleduj();
-});
-
-/// Stanice podle ID – pro popisky v historii a v detailu.
-final mapaStanicProvider = Provider<Map<String, Stanice>>((ref) {
-  final stanice = ref.watch(staniceProvider).value ?? const <Stanice>[];
-  return {for (final s in stanice) s.id: s};
 });
 
 /// Otevřená relace přihlášeného uživatele, nebo `null`.

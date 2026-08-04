@@ -6,7 +6,6 @@ import '../../../../common/motiv/barvy.dart';
 import '../../../../common/motiv/rozmery.dart';
 import '../../../../common/widgety/prvky.dart';
 import '../../../vozidla/application/vozidla_providery.dart';
-import '../../application/nabijeni_providery.dart';
 import '../../domain/relace.dart';
 
 /// Odznak stavu relace ve třech variantách podle návrhu.
@@ -31,22 +30,15 @@ class OdznakStavu extends StatelessWidget {
   }
 }
 
-/// Popisky relace poskládané ze zkopírované SPZ, aktuálního seznamu
-/// vozidel a seznamu stanic.
-class PopiskyRelace {
-  const PopiskyRelace({required this.vozidlo, required this.stanice});
-
-  final String vozidlo;
-  final String stanice;
-}
-
-/// Popisky se počítají z aktuálních dat; SPZ v relaci je ale kopie textu,
-/// takže historie zůstane čitelná i po smazání vozidla z profilu.
+/// Popisek vozidla: značka doplněná z aktuálního profilu, SPZ z relace.
+///
+/// SPZ je v relaci kopie textu, takže historie zůstane čitelná i po
+/// smazání vozidla z profilu – jen bez značky.
 ///
 /// Záměrně funkce, ne `Provider.family`: relace přicházejí ze streamu
 /// jako nové instance bez hodnotové rovnosti, takže by rodina donekonečna
 /// přibírala další a další záznamy.
-PopiskyRelace popiskyRelace(WidgetRef ref, Relace relace) {
+String popisekVozidla(WidgetRef ref, Relace relace) {
   final vozidla = ref.watch(vozidlaProvider).value ?? const [];
   String? znacka;
   for (final v in vozidla) {
@@ -55,11 +47,7 @@ PopiskyRelace popiskyRelace(WidgetRef ref, Relace relace) {
       break;
     }
   }
-  final stanice = ref.watch(mapaStanicProvider)[relace.staniceId];
-  return PopiskyRelace(
-    vozidlo: znacka == null ? relace.spz : '$znacka · ${relace.spz}',
-    stanice: '${stanice?.nazev ?? 'Stanice'} · Konektor ${relace.konektor}',
-  );
+  return znacka == null ? relace.spz : '$znacka · ${relace.spz}';
 }
 
 /// Řádek v seznamu relací (domovská obrazovka i historie).
@@ -72,10 +60,10 @@ class RadekRelace extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
-    final popisky = popiskyRelace(ref, relace);
     final podtitulek = relace.probiha
-        ? '${popisky.stanice} · probíhá'
-        : '${popisky.stanice} · ${Format.datum(relace.zahajeno)}';
+        ? 'Probíhá od ${Format.cas(relace.zahajeno)}'
+        : '${Format.datum(relace.zahajeno)} · '
+              '${Format.kwh(relace.spotreba ?? 0)} kWh';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -98,7 +86,7 @@ class RadekRelace extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      popisky.vozidlo,
+                      popisekVozidla(ref, relace),
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 2),

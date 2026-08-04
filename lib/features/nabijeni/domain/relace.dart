@@ -33,8 +33,6 @@ class Relace {
     required this.uid,
     required this.spz,
     required this.vozidloId,
-    required this.staniceId,
-    required this.konektor,
     required this.kwhStart,
     required this.zahajeno,
     required this.fotoStart,
@@ -53,10 +51,6 @@ class Relace {
   /// čitelná i po smazání vozidla z profilu.
   final String spz;
   final String vozidloId;
-  final String staniceId;
-
-  /// `A` nebo `B`.
-  final String konektor;
   final double kwhStart;
   final double? kwhEnd;
   final DateTime zahajeno;
@@ -84,8 +78,6 @@ class Relace {
       uid: data['uid'] as String? ?? '',
       spz: data['spz'] as String? ?? '',
       vozidloId: data['vozidlo_id'] as String? ?? '',
-      staniceId: data['stanice_id'] as String? ?? '',
-      konektor: data['konektor'] as String? ?? '',
       kwhStart: (data['kwh_start'] as num?)?.toDouble() ?? 0,
       kwhEnd: (data['kwh_end'] as num?)?.toDouble(),
       zahajeno:
@@ -109,8 +101,6 @@ class Relace {
     required String uid,
     required String spz,
     required String vozidloId,
-    required String staniceId,
-    required String konektor,
     required double kwhStart,
     required DateTime zahajeno,
     required FotoMetadata fotoStart,
@@ -118,8 +108,6 @@ class Relace {
     'uid': uid,
     'spz': spz,
     'vozidlo_id': vozidloId,
-    'stanice_id': staniceId,
-    'konektor': konektor,
     'kwh_start': kwhStart,
     'kwh_end': null,
     'zahajeno': Timestamp.fromDate(zahajeno),

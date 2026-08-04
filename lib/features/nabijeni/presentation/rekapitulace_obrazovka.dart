@@ -30,7 +30,7 @@ class RekapitulaceObrazovka extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
-    final popisky = popiskyRelace(ref, relace);
+    final vozidlo = popisekVozidla(ref, relace);
     final stav = ref.watch(ukonceniControllerProvider);
     final spotreba = kwhEnd - relace.kwhStart;
     final doba = fotoEnd.porizenoAt.isAfter(relace.zahajeno)
@@ -64,14 +64,7 @@ class RekapitulaceObrazovka extends ConsumerWidget {
                           padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                           child: Column(
                             children: [
-                              RadekDat(
-                                popisek: 'Vozidlo',
-                                hodnota: popisky.vozidlo,
-                              ),
-                              RadekDat(
-                                popisek: 'Stanice',
-                                hodnota: popisky.stanice,
-                              ),
+                              RadekDat(popisek: 'Vozidlo', hodnota: vozidlo),
                               RadekDat(
                                 popisek: 'Počáteční stav',
                                 hodnota: '${Format.kwh(relace.kwhStart)} kWh',

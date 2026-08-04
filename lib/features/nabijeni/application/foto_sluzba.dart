@@ -9,7 +9,7 @@ import '../../../common/chyby.dart';
 import '../../../common/konfigurace.dart';
 import '../domain/porizena_fotografie.dart';
 
-/// Pořízení fotografie počítadla fotoaparátem.
+/// Pořízení fotografie počítadla – fotoaparátem, nebo výběrem z galerie.
 ///
 /// Ke snímku rovnou počítá SHA-256 (otisk pro pozdější ověření, že se
 /// fotka nezměnila) a hledá čas pořízení v EXIF – ne čas nahrání.
@@ -18,24 +18,32 @@ class FotoSluzba {
 
   final ImagePicker _picker;
 
-  /// Otevře fotoaparát. Vyhodí [FoceniZruseno], když uživatel focení
-  /// zavře, nebo [KameraNedostupna] při chybějícím oprávnění.
-  Future<PorizenaFotografie> vyfotPocitadlo() async {
+  /// Otevře fotoaparát, nebo galerii. Vyhodí [FoceniZruseno], když
+  /// uživatel výběr zavře, jinak [KameraNedostupna] / [GalerieNedostupna]
+  /// (typicky chybějící oprávnění).
+  ///
+  /// U snímku z galerie je EXIF čas obzvlášť podstatný: fotka mohla
+  /// vzniknout před hodinou i před týdnem a je to jediný údaj, ze kterého
+  /// jde poznat kdy. Proto se ukládá i [PorizenaFotografie.zdroj].
+  Future<PorizenaFotografie> nactiPocitadlo(ZdrojFoto zdroj) async {
+    final zFotoaparatu = zdroj == ZdrojFoto.fotoaparat;
     final XFile? snimek;
     try {
       snimek = await _picker.pickImage(
-        source: ImageSource.camera,
+        source: zFotoaparatu ? ImageSource.camera : ImageSource.gallery,
         preferredCameraDevice: CameraDevice.rear,
         maxWidth: Konfigurace.maxSirkaFoto,
         imageQuality: Konfigurace.kvalitaFoto,
         requestFullMetadata: true,
       );
     } catch (_) {
-      throw const KameraNedostupna();
+      throw zFotoaparatu ? const KameraNedostupna() : const GalerieNedostupna();
     }
     if (snimek == null) throw const FoceniZruseno();
 
     // Záložní čas se bere hned – čím dřív, tím blíž okamžiku pořízení.
+    // U galerie je to ale jen nouzovka: říká, kdy uživatel snímek vybral,
+    // ne kdy vznikl.
     final casVraceni = DateTime.now();
     final bajty = await snimek.readAsBytes();
     final casZExif = await prectiCasZExif(bajty);
@@ -46,6 +54,7 @@ class FotoSluzba {
       sha256: spocitejOtisk(bajty),
       porizenoAt: casZExif ?? casVraceni,
       casZExif: casZExif != null,
+      zdroj: zdroj,
     );
   }
 

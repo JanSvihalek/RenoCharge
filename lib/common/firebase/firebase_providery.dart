@@ -21,15 +21,5 @@ final storageProvider = Provider<FirebaseStorage>(
 abstract final class Kolekce {
   static const uzivatele = 'uzivatele';
   static const vozidla = 'vozidla';
-  static const stanice = 'stanice';
   static const nabijeni = 'nabijeni';
-
-  /// Zámky konektorů – slouží k tomu, aby se dala jedinečnost otevřené
-  /// relace na konektoru vynutit transakcí (transakce v klientském SDK
-  /// umí číst jen konkrétní dokument, ne dotaz).
-  static const zamkyKonektoru = 'zamky_konektoru';
-
-  /// Deterministické ID zámku pro dvojici stanice + konektor.
-  static String zamekId(String staniceId, String konektor) =>
-      '${staniceId}__$konektor';
 }

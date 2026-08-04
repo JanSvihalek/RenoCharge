@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:renocharge/features/nabijeni/application/zahajeni_controller.dart';
-import 'package:renocharge/features/nabijeni/data/stanice_repository.dart';
 import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
 import 'package:renocharge/features/nabijeni/domain/relace.dart';
-import 'package:renocharge/features/nabijeni/domain/stanice.dart';
+import 'package:renocharge/features/vozidla/application/vozidla_providery.dart';
 import 'package:renocharge/features/vozidla/data/vozidla_repository.dart';
 import 'package:renocharge/features/vozidla/domain/vozidlo.dart';
 
@@ -17,8 +16,6 @@ Relace _relace({double? kwhEnd, DateTime? ukonceno, StavRelace? stav}) =>
       uid: 'u1',
       spz: '2AB 3344',
       vozidloId: 'v1',
-      staniceId: 'st3',
-      konektor: 'A',
       kwhStart: 18342.4,
       kwhEnd: kwhEnd,
       zahajeno: DateTime(2026, 8, 3, 7, 12),
@@ -90,48 +87,58 @@ void main() {
     });
   });
 
-  group('řazení stanic', () {
-    test('Stanice 2 je před Stanicí 10', () {
-      final stanice = [
-        const Stanice(id: 'b', nazev: 'Stanice 10', konektory: []),
-        const Stanice(id: 'a', nazev: 'Stanice 2', konektory: []),
-      ]..sort(StaniceRepository.porovnejNazvy);
-      expect(stanice.map((s) => s.nazev), ['Stanice 2', 'Stanice 10']);
+  group('ZahajeniStav', () {
+    test('bez vozidla se nedá pokračovat', () {
+      expect(const ZahajeniStav().jeKompletni, isFalse);
+      expect(const ZahajeniStav(vozidloId: 'v1').jeKompletni, isTrue);
     });
   });
 
-  group('ZahajeniStav', () {
-    test('bez všech tří voleb se nedá pokračovat', () {
-      expect(const ZahajeniStav().jeKompletni, isFalse);
-      expect(
-        const ZahajeniStav(vozidloId: 'v1', staniceId: 'st1').jeKompletni,
-        isFalse,
+  group('předvýběr vozidla', () {
+    // Stanice ani konektor se nezadávají, takže vozidlo je jediná volba.
+    // S jedním autem je i ta zbytečná – uživatel u nabíječky jen potvrdí.
+    ProviderContainer sKontejnerem(List<Vozidlo> vozidla) {
+      final kontejner = ProviderContainer.test(
+        overrides: [
+          vozidlaProvider.overrideWith((ref) => Stream.value(vozidla)),
+        ],
       );
+      // Bez posluchače se stream neodebírá a `future` by nikdy nedoběhl.
+      kontejner.listen(vozidlaProvider, (_, _) {});
+      kontejner.listen(zahajeniControllerProvider, (_, _) {});
+      return kontejner;
+    }
+
+    test('jediné vozidlo se předvybere', () async {
+      final kontejner = sKontejnerem(const [
+        Vozidlo(id: 'v1', spz: '2AB 3344'),
+      ]);
+      kontejner.read(zahajeniControllerProvider);
+      await kontejner.read(vozidlaProvider.future);
+
+      expect(kontejner.read(zahajeniControllerProvider).vozidloId, 'v1');
     });
 
-    test('s vozidlem, stanicí i konektorem se pokračovat dá', () {
-      const stav = ZahajeniStav(
-        vozidloId: 'v1',
-        staniceId: 'st1',
-        konektor: 'A',
-      );
-      expect(stav.jeKompletni, isTrue);
+    test('při více vozidlech si uživatel vybírá sám', () async {
+      final kontejner = sKontejnerem(const [
+        Vozidlo(id: 'v1', spz: '2AB 3344'),
+        Vozidlo(id: 'v2', spz: '5CD 1234'),
+      ]);
+      kontejner.read(zahajeniControllerProvider);
+      await kontejner.read(vozidlaProvider.future);
+
+      expect(kontejner.read(zahajeniControllerProvider).vozidloId, isNull);
     });
 
-    test('změna stanice zahodí dříve vybraný konektor', () {
-      final kontejner = ProviderContainer.test();
-      final rizeni = kontejner.read(zahajeniControllerProvider.notifier);
+    test('vlastní volba se předvýběrem nepřepíše', () async {
+      final kontejner = sKontejnerem(const [
+        Vozidlo(id: 'v1', spz: '2AB 3344'),
+        Vozidlo(id: 'v2', spz: '5CD 1234'),
+      ]);
+      kontejner.read(zahajeniControllerProvider.notifier).vyberVozidlo('v2');
+      await kontejner.read(vozidlaProvider.future);
 
-      rizeni.vyberVozidlo('v1');
-      rizeni.vyberStanici('st1');
-      rizeni.vyberKonektor('A');
-      expect(kontejner.read(zahajeniControllerProvider).jeKompletni, isTrue);
-
-      rizeni.vyberStanici('st2');
-      final stav = kontejner.read(zahajeniControllerProvider);
-      expect(stav.konektor, isNull, reason: 'konektor patří ke stanici');
-      expect(stav.vozidloId, 'v1', reason: 'vozidlo zůstává vybrané');
-      expect(stav.jeKompletni, isFalse);
+      expect(kontejner.read(zahajeniControllerProvider).vozidloId, 'v2');
     });
   });
 }

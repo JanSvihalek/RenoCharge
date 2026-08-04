@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:renocharge/features/nabijeni/application/foto_sluzba.dart';
+import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
+import 'package:renocharge/features/nabijeni/domain/porizena_fotografie.dart';
 
 void main() {
   group('rozparsujExifCas', () {
@@ -41,6 +43,27 @@ void main() {
       final a = FotoSluzba.spocitejOtisk(Uint8List.fromList([1, 2, 3]));
       final b = FotoSluzba.spocitejOtisk(Uint8List.fromList([1, 2, 4]));
       expect(a, isNot(b));
+    });
+  });
+
+  group('zdroj fotky', () {
+    test('projde tam a zpátky přes mapu', () {
+      final metadata = FotoMetadata(
+        path: 'nabijeni/r1/start.jpg',
+        sha256: 'a' * 64,
+        porizenoAt: DateTime(2026, 8, 3, 14, 22),
+        zdroj: ZdrojFoto.galerie,
+      );
+      expect(FotoMetadata.zMapy(metadata.naMapu())!.zdroj, ZdrojFoto.galerie);
+    });
+
+    test('záznam bez pole zdroj bereme jako snímek z fotoaparátu', () {
+      // Relace založené před přidáním výběru z galerie pole nemají.
+      final stary = FotoMetadata.zMapy({
+        'path': 'nabijeni/r0/start.jpg',
+        'sha256': 'b' * 64,
+      });
+      expect(stary!.zdroj, ZdrojFoto.fotoaparat);
     });
   });
 }

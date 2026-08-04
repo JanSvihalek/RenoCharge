@@ -1,5 +1,20 @@
 import 'dart:typed_data';
 
+/// Odkud snímek přišel. Ukládá se k relaci, protože fotka z galerie je
+/// slabší doklad než snímek pořízený v aplikaci – mohla vzniknout kdykoli
+/// a kdekoli.
+enum ZdrojFoto {
+  fotoaparat('fotoaparat'),
+  galerie('galerie');
+
+  const ZdrojFoto(this.klic);
+
+  final String klic;
+
+  static ZdrojFoto zKlice(String? klic) =>
+      klic == galerie.klic ? galerie : fotoaparat;
+}
+
 /// Fotografie počítadla, která je pořízená, ale ještě nenahraná.
 ///
 /// Nese už spočítaný otisk i čas pořízení, takže nahrání do Storage
@@ -11,11 +26,13 @@ class PorizenaFotografie {
     required this.sha256,
     required this.porizenoAt,
     required this.casZExif,
+    required this.zdroj,
   });
 
   final String cestaVSouborovemSystemu;
   final Uint8List bajty;
   final String sha256;
+  final ZdrojFoto zdroj;
 
   /// Čas pořízení. Přednostně z EXIF snímku.
   final DateTime porizenoAt;

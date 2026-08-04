@@ -26,20 +26,17 @@ service cloud.firestore {
       return resource.data;
     }
 
-    function otevrenaRelace(id) {
-      return exists(/databases/$(database)/documents/nabijeni/$(id))
-        && get(/databases/$(database)/documents/nabijeni/$(id)).data.stav == 'probiha';
-    }
-
-    // Metadata fotky: cesta ve Storage, otisk a čas pořízení z EXIF.
+    // Metadata fotky: cesta ve Storage, otisk, čas pořízení z EXIF a to,
+    // jestli snímek vznikl v aplikaci, nebo byl vybraný z galerie.
     function platnaFoto(foto) {
-      return foto.keys().hasOnly(['path', 'sha256', 'porizeno_at'])
-        && foto.keys().hasAll(['path', 'sha256', 'porizeno_at'])
+      return foto.keys().hasOnly(['path', 'sha256', 'porizeno_at', 'zdroj'])
+        && foto.keys().hasAll(['path', 'sha256', 'porizeno_at', 'zdroj'])
         && foto.path is string
         && foto.path.size() > 0
         && foto.sha256 is string
         && foto.sha256.size() == 64
-        && foto.porizeno_at is timestamp;
+        && foto.porizeno_at is timestamp
+        && foto.zdroj in ['fotoaparat', 'galerie'];
     }
 
     // ── Profil uživatele ───────────────────────────────────────────────
@@ -97,13 +94,6 @@ service cloud.firestore {
       }
     }
 
-    // ── Stanice ────────────────────────────────────────────────────────
-    // Spravuje je správce mimo aplikaci (konzole nebo admin SDK).
-    match /stanice/{staniceId} {
-      allow read: if prihlasen();
-      allow write: if false;
-    }
-
     // ── Nabíjecí relace ────────────────────────────────────────────────
     match /nabijeni/{relaceId} {
       function mojeRelace() {
@@ -118,20 +108,18 @@ service cloud.firestore {
         && nova().uid == ja()
         && nova().stav == 'probiha'
         && nova().keys().hasOnly([
-          'uid', 'spz', 'vozidlo_id', 'stanice_id', 'konektor',
+          'uid', 'spz', 'vozidlo_id',
           'kwh_start', 'kwh_end', 'zahajeno', 'ukonceno',
           'foto_start', 'foto_end', 'stav',
           'vytvoreno_at', 'aktualizovano_at'
         ])
         && nova().keys().hasAll([
-          'uid', 'spz', 'vozidlo_id', 'stanice_id', 'konektor',
+          'uid', 'spz', 'vozidlo_id',
           'kwh_start', 'zahajeno', 'foto_start', 'stav'
         ])
         && nova().spz is string
         && nova().spz.size() > 0
         && nova().vozidlo_id is string
-        && nova().stanice_id is string
-        && nova().konektor in ['A', 'B']
         && nova().kwh_start is number
         && nova().kwh_start >= 0
         && nova().zahajeno is timestamp
@@ -149,8 +137,6 @@ service cloud.firestore {
         && nova().kwh_start == stara().kwh_start
         && nova().spz == stara().spz
         && nova().vozidlo_id == stara().vozidlo_id
-        && nova().stanice_id == stara().stanice_id
-        && nova().konektor == stara().konektor
         && nova().zahajeno == stara().zahajeno
         && nova().foto_start == stara().foto_start
         && nova().kwh_end is number
@@ -159,39 +145,6 @@ service cloud.firestore {
         && platnaFoto(nova().foto_end);
 
       allow delete: if false;
-    }
-
-    // ── Zámky konektorů ────────────────────────────────────────────────
-    // Pomocná evidence, díky které jde pravidlo „na jednom konektoru
-    // nejvýš jedna otevřená relace" vynutit transakcí. Klientské SDK
-    // totiž umí v transakci číst jen konkrétní dokument, ne dotaz.
-    match /zamky_konektoru/{zamekId} {
-      function tvarZamku() {
-        return nova().keys().hasOnly([
-          'nabijeni_id', 'uid', 'stanice_id', 'konektor', 'zahajeno'
-        ])
-        && nova().uid == ja()
-        && nova().nabijeni_id is string
-        && nova().konektor in ['A', 'B']
-        && zamekId == nova().stanice_id + '__' + nova().konektor;
-      }
-
-      // Zámek musí být čitelný všem přihlášeným, jinak by se souběh
-      // dvou telefonů nedal poznat.
-      allow read: if prihlasen();
-
-      // Zámek vzniká v jedné transakci s relací, takže se v tu chvíli
-      // ještě nedá ověřit proti dokumentu relace.
-      allow create: if prihlasen() && tvarZamku();
-
-      // Přepsat jde jen zámek, jehož relace už neběží – zámek živé
-      // relace nikdo cizí nepřebije.
-      allow update: if prihlasen()
-        && tvarZamku()
-        && !otevrenaRelace(stara().nabijeni_id);
-
-      allow delete: if prihlasen()
-        && (stara().uid == ja() || !otevrenaRelace(stara().nabijeni_id));
     }
   }
 }

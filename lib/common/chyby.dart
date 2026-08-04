@@ -106,15 +106,6 @@ class JizMateOtevrenouRelaci extends AppChyba {
   final String relaceId;
 }
 
-/// Na daném konektoru už běží relace jiného uživatele.
-class KonektorObsazen extends AppChyba {
-  const KonektorObsazen()
-    : super(
-        'Na tomto konektoru už nabíjení probíhá. '
-        'Vyberte prosím jiný konektor nebo stanici.',
-      );
-}
-
 class NeplatnyKoncovyStav extends AppChyba {
   const NeplatnyKoncovyStav(this.kwhStart)
     : super(
@@ -144,6 +135,14 @@ class KameraNedostupna extends AppChyba {
   const KameraNedostupna()
     : super(
         'K fotoaparátu se nepodařilo přistoupit. '
+        'Zkontrolujte prosím oprávnění aplikace v nastavení telefonu.',
+      );
+}
+
+class GalerieNedostupna extends AppChyba {
+  const GalerieNedostupna()
+    : super(
+        'K fotkám v telefonu se nepodařilo přistoupit. '
         'Zkontrolujte prosím oprávnění aplikace v nastavení telefonu.',
       );
 }
