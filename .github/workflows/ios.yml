@@ -1,0 +1,70 @@
+name: iOS build
+
+# macOS runnery se u privátního repozitáře účtují desetinásobkem minut
+# oproti Linuxu, proto build neběží na každý push do větve, ale jen na
+# main a na ruční spuštění. Kontrola kódu a testy běží na Linuxu.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: 3.41.8
+
+jobs:
+  kontrola:
+    name: Analýza a testy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Závislosti
+        run: flutter pub get
+
+      - name: Formátování
+        run: dart format --set-exit-if-changed lib test
+
+      - name: Analýza
+        run: flutter analyze
+
+      - name: Testy
+        run: flutter test
+
+  ios:
+    name: Sestavení pro iOS
+    # Nemá smysl platit za macOS minuty, když neprojde analýza.
+    needs: kontrola
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          architecture: arm64
+          cache: true
+
+      - name: Závislosti
+        run: flutter pub get
+
+      # Bez Apple Developer účtu neumíme build podepsat. Tenhle krok
+      # tedy ověřuje, že se projekt na iOS přeloží – výsledek se na
+      # telefon nenainstaluje. Podepisování a TestFlight přibudou sem,
+      # až bude účet k dispozici.
+      - name: Sestavení bez podpisu
+        run: flutter build ios --release --no-codesign
+
+      - name: Uložení výsledku
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runner-app
+          path: build/ios/iphoneos/Runner.app
+          retention-days: 7
+          if-no-files-found: error
