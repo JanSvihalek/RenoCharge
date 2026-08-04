@@ -2,12 +2,25 @@ import 'package:intl/intl.dart';
 
 /// Formátování a parsování hodnot zobrazovaných v UI. Vše v české lokalizaci.
 abstract final class Format {
-  static final NumberFormat _kwh = NumberFormat('#,##0.0', 'cs_CZ');
+  /// Dvě desetinná místa schválně: počítadla nabíječek je tak ukazují
+  /// a na jedno by se `27,49` zobrazilo jako `27,5`. Zaokrouhlení nahoru
+  /// u podkladu k fakturaci nikdo vidět nechce, i když se počítá vždycky
+  /// z přesné hodnoty a ne z té zobrazené.
+  static final NumberFormat _kwh = NumberFormat('#,##0.00', 'cs_CZ');
+  static final NumberFormat _castka = NumberFormat('#,##0.00', 'cs_CZ');
+  static final NumberFormat _sazba = NumberFormat('#,##0.00', 'cs_CZ');
   static final DateFormat _datum = DateFormat('d. M. y', 'cs_CZ');
   static final DateFormat _cas = DateFormat('HH:mm', 'cs_CZ');
 
   /// Stav počítadla nebo spotřeba: `18 342,4`.
   static String kwh(num hodnota) => _kwh.format(hodnota);
+
+  /// Orientační částka: `178,50 Kč`. Na haléře, protože sazba je taky
+  /// na haléře a zaokrouhlení nahoru by u malých odběrů mátlo.
+  static String castka(num hodnota) => '${_castka.format(hodnota)} Kč';
+
+  /// Sazba za kilowatthodinu: `6,50 Kč/kWh`.
+  static String sazba(num hodnota) => '${_sazba.format(hodnota)} Kč/kWh';
 
   /// `1. 8. 2026`
   static String datum(DateTime cas) => _datum.format(cas.toLocal());

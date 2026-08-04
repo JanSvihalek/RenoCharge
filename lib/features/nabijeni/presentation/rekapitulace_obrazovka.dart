@@ -81,7 +81,10 @@ class RekapitulaceObrazovka extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        BlokSpotreby(kwh: Format.kwh(spotreba)),
+                        BlokSpotreby(
+                          kwh: Format.kwh(spotreba),
+                          castka: orientacniCastka(ref, spotreba),
+                        ),
                       ],
                     ),
                   ),

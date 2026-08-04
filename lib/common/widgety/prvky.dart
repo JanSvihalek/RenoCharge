@@ -191,9 +191,13 @@ class RadekDat extends StatelessWidget {
 
 /// Zvýrazněný blok se spotřebou na patě karty.
 class BlokSpotreby extends StatelessWidget {
-  const BlokSpotreby({super.key, required this.kwh});
+  const BlokSpotreby({super.key, required this.kwh, this.castka});
 
   final String kwh;
+
+  /// Orientační částka podle sazby z nastavení. `null`, když sazba
+  /// zadaná není – pak se o penězích nemluví vůbec.
+  final String? castka;
 
   @override
   Widget build(BuildContext context) {
@@ -212,6 +216,15 @@ class BlokSpotreby extends StatelessWidget {
               context,
             ).textTheme.displaySmall?.copyWith(color: b.accent),
           ),
+          // Slovo „orientačně" tu není omylem: fakturuje se mimo aplikaci
+          // a sazba se může lišit.
+          if (castka != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              'orientačně $castka',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
         ],
       ),
     );

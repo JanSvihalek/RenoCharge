@@ -71,4 +71,34 @@ void main() {
       expect(_uzivatel('   ').krestniJmeno, 'kolego');
     });
   });
+
+  group('orientační cena', () {
+    // Aplikace o penězích nemluví, dokud si uživatel sazbu nezadá –
+    // fakturuje se mimo ni a vlastní sazbu si tam nikdo domýšlet nemá.
+    Uzivatel sCenou(double? cena) => Uzivatel(
+      uid: 'u1',
+      jmeno: 'Jan',
+      email: 'jan@firma.cz',
+      cenaZaKwh: cena,
+    );
+
+    test('bez zadané sazby se částka nepočítá', () {
+      expect(sCenou(null).maZadanouCenu, isFalse);
+      expect(sCenou(null).castkaZa(27.4), isNull);
+    });
+
+    test('nula ani záporná sazba se nepovažuje za zadanou', () {
+      expect(sCenou(0).maZadanouCenu, isFalse);
+      expect(sCenou(0).castkaZa(27.4), isNull);
+      expect(sCenou(-3).castkaZa(27.4), isNull);
+    });
+
+    test('se sazbou vyjde součin', () {
+      expect(sCenou(6.5).castkaZa(27.4), closeTo(178.1, 0.001));
+    });
+
+    test('u běžící relace není spotřeba, tedy ani částka', () {
+      expect(sCenou(6.5).castkaZa(null), isNull);
+    });
+  });
 }

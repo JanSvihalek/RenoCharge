@@ -65,4 +65,16 @@ class UzivateleRepository {
       throw AppChyba.zFirebase(chyba);
     }
   }
+
+  /// Uloží předpokládanou cenu za kWh, nebo ji smaže (`null`).
+  ///
+  /// Bez zadané sazby aplikace o penězích nemluví, proto se maže hodnotou
+  /// `null` a ne nulou – nula by znamenala „nabíjím zdarma".
+  Future<void> nastavCenuZaKwh({required String uid, double? cena}) async {
+    try {
+      await _ref(uid).set({'cena_za_kwh': cena}, SetOptions(merge: true));
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
 }

@@ -5,6 +5,7 @@ import '../../../../common/formatovani.dart';
 import '../../../../common/motiv/barvy.dart';
 import '../../../../common/motiv/rozmery.dart';
 import '../../../../common/widgety/prvky.dart';
+import '../../../auth/application/auth_providery.dart';
 import '../../../vozidla/application/vozidla_providery.dart';
 import '../../domain/relace.dart';
 
@@ -50,6 +51,18 @@ String popisekVozidla(WidgetRef ref, Relace relace) {
   return znacka == null ? relace.spz : '$znacka · ${relace.spz}';
 }
 
+/// Orientační částka za odběr podle sazby z nastavení, nebo `null`,
+/// když si ji uživatel nezadal.
+///
+/// Počítá se z **aktuálně nastavené** sazby, neukládá se k záznamu.
+/// Změna sazby proto přepočítá i historii – u orientačního údaje je to
+/// srozumitelnější než mít v seznamu částky podle několika starých sazeb.
+/// Fakturuje se stejně mimo aplikaci.
+String? orientacniCastka(WidgetRef ref, double? spotreba) {
+  final castka = ref.watch(profilProvider).value?.castkaZa(spotreba);
+  return castka == null ? null : Format.castka(castka);
+}
+
 /// Řádek v seznamu relací (domovská obrazovka i historie).
 class RadekRelace extends ConsumerWidget {
   const RadekRelace({super.key, required this.relace, required this.onTap});
@@ -60,10 +73,12 @@ class RadekRelace extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
+    final castka = orientacniCastka(ref, relace.spotreba);
     final podtitulek = relace.probiha
         ? 'Probíhá od ${Format.cas(relace.zahajeno)}'
         : '${Format.datum(relace.zahajeno)} · '
-              '${Format.kwh(relace.spotreba ?? 0)} kWh';
+              '${Format.kwh(relace.spotreba ?? 0)} kWh'
+              '${castka == null ? '' : ' · $castka'}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

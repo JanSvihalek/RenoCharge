@@ -130,7 +130,10 @@ class _Obsah extends ConsumerWidget {
                 ),
               ),
               if (spotreba != null)
-                BlokSpotreby(kwh: Format.kwh(spotreba))
+                BlokSpotreby(
+                  kwh: Format.kwh(spotreba),
+                  castka: orientacniCastka(ref, spotreba),
+                )
               else
                 const Padding(
                   padding: EdgeInsets.only(bottom: 18),

@@ -53,7 +53,7 @@ service cloud.firestore {
       function povolenaPole() {
         return nova().keys().hasOnly([
           'jmeno', 'email', 'osobni_cislo', 'vytvoreno_at',
-          'onboarding_at', 'aktivni_nabijeni_id'
+          'onboarding_at', 'aktivni_nabijeni_id', 'cena_za_kwh'
         ])
         && nova().jmeno is string
         && nova().jmeno.size() <= 80
@@ -62,7 +62,14 @@ service cloud.firestore {
             || nova().osobni_cislo == null
             || (nova().osobni_cislo is string
                 && nova().osobni_cislo.size() > 0
-                && nova().osobni_cislo.size() <= 40));
+                && nova().osobni_cislo.size() <= 40))
+        // Orientační sazba pro přepočet v aplikaci. Fakturuje se mimo ni,
+        // takže na hodnotě nic nezávisí – jen ať to není nesmysl.
+        && (!nova().keys().hasAny(['cena_za_kwh'])
+            || nova().cena_za_kwh == null
+            || (nova().cena_za_kwh is number
+                && nova().cena_za_kwh > 0
+                && nova().cena_za_kwh < 1000));
       }
 
       allow read: if mujProfil();

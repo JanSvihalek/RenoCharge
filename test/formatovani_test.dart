@@ -11,7 +11,7 @@ void main() {
       expect(Format.parsujKwh('12486,7'), 12486.7);
       expect(Format.parsujKwh('12486.7'), 12486.7);
       expect(Format.parsujKwh('12 486,7'), 12486.7);
-      expect(Format.parsujKwh('12 486,7'), 12486.7);
+      expect(Format.parsujKwh('12\u00a0486,7'), 12486.7);
     });
 
     test('odmítne prázdný a nečíselný vstup', () {
@@ -25,13 +25,22 @@ void main() {
   });
 
   group('kwh', () {
-    test('vždy jedno desetinné místo', () {
-      expect(Format.kwh(27), '27,0');
-      expect(Format.kwh(27.44), '27,4');
+    test('vždy dvě desetinná místa', () {
+      expect(Format.kwh(27), '27,00');
+      expect(Format.kwh(27.4), '27,40');
+    });
+
+    // Na jedno desetinné místo se 27,49 zobrazilo jako 27,5 – tedy víc,
+    // než se opravdu nabilo. U podkladu k fakturaci to vadí.
+    test('setiny se nezaokrouhlují nahoru', () {
+      expect(Format.kwh(27.49), '27,49');
+      // Čeština odděluje tisíce nedělitelnou mezerou, ne obyčejnou –
+      // zapsané escapem, aby to nebylo v testu neviditelné.
+      expect(Format.kwh(11484.81), '11\u00a0484,81');
     });
 
     test('tisíce jsou oddělené a hodnotu jde přečíst zpátky', () {
-      expect(Format.parsujKwh(Format.kwh(18342.4)), 18342.4);
+      expect(Format.parsujKwh(Format.kwh(18342.45)), 18342.45);
     });
   });
 
@@ -54,6 +63,21 @@ void main() {
         Format.rozsahCasu(od, DateTime(2026, 8, 3, 12, 44)),
         '07:12 – 12:44',
       );
+    });
+  });
+
+  group('castka a sazba', () {
+    test('částka je na haléře s měnou', () {
+      expect(Format.castka(178.1), '178,10 Kč');
+      expect(Format.castka(1234.5), '1\u00a0234,50 Kč');
+    });
+
+    test('sazba nese jednotku za kWh', () {
+      expect(Format.sazba(6.5), '6,50 Kč/kWh');
+    });
+
+    test('nula se zobrazí, ne vynechá', () {
+      expect(Format.castka(0), '0,00 Kč');
     });
   });
 }

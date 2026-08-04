@@ -193,7 +193,8 @@ class _ZadneVozidlo extends ConsumerWidget {
           ikona: Icons.add,
           vyska: Rozmery.dotykMin,
           onTap: () {
-            ref.read(zalozkaProvider.notifier).prepni(Zalozka.vozidla);
+            // Vozidla se spravují v nastavení, samostatnou záložku nemají.
+            ref.read(zalozkaProvider.notifier).prepni(Zalozka.nastaveni);
             Navigator.of(context).pop();
           },
         ),

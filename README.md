@@ -4,7 +4,8 @@ Mobilní aplikace pro zaměstnance autosalonu k evidenci nabíjení soukromých
 vozidel na firemní nabíječce. Uživatel před nabíjením a po něm vyfotí stav
 počítadla; rozdíl kWh se fakturuje **mimo aplikaci**.
 
-Aplikace o penězích nic neví – nezobrazuje ceny, sazby ani částky.
+Aplikace neúčtuje. Umí jen orientační přepočet podle sazby, kterou si
+uživatel sám zadá v nastavení – viz [Orientační cena](#orientační-cena).
 
 **Fáze 1: pouze mobilní zápis dat.** Webový portál pro schvalování
 a fakturaci vznikne později a není součástí tohoto zadání.
@@ -99,8 +100,9 @@ lib/
   features/
     auth/           přihlášení firemním účtem, profil uživatele
     nabijeni/       relace, focení, OCR, historie
+    nastaveni/      cena za kWh, přehled profilu
     reporty/        export období do PDF
-    vozidla/        vozidla uživatele
+    vozidla/        vozidla uživatele (sekce vkládaná do nastavení)
   navigace/         hlavní rámec s tab barem, otevírání toků
 ```
 
@@ -109,7 +111,8 @@ lib/
 ```
 uzivatele/{uid}                jmeno, email, osobni_cislo?, vytvoreno_at,
                                onboarding_at?,           ← viz Onboarding
-                               aktivni_nabijeni_id?      ← viz Rozhodnutí
+                               aktivni_nabijeni_id?,     ← viz Rozhodnutí
+                               cena_za_kwh?              ← viz Orientační cena
 uzivatele/{uid}/vozidla/{id}   spz, znacka_model?
 nabijeni/{id}                  uid, spz, vozidlo_id,
                                kwh_start, kwh_end?, zahajeno, ukonceno?,
@@ -273,9 +276,38 @@ a funguje i offline, na rozdíl od stahování z Google Fonts za běhu.
 dotaz ale potřebuje půlnoc následujícího – jinak by relace zahájená
 poslední den v 7:12 z reportu vypadla.
 
+## Orientační cena
+
+Zadání ceny vylučovalo a dlouho je aplikace opravdu neznala. Pak přibyl
+požadavek vidět u záznamu, kolik to zhruba stálo. Je to **odhad pro
+uživatele, ne účetní údaj**, a podle toho je to postavené:
+
+* Sazbu si zadává každý sám v nastavení. Dokud ji nezadá, aplikace
+  o penězích nemluví vůbec – žádná nula, žádná pomlčka.
+* **Spočítaná částka se nikam neukládá.** Dopočítává se z aktuálně
+  nastavené sazby, takže její změna přepočítá i historii. U orientačního
+  údaje je to srozumitelnější než mít v seznamu částky podle několika
+  starých sazeb.
+* **Do PDF reportu se částka nedává.** Report je podklad k fakturaci
+  a orientační číslo v něm by svádělo k tomu brát ho jako závazné.
+* Všude, kde se zobrazuje, je uvozená slovem „orientačně".
+
+Sazba je v profilu (`cena_za_kwh`), aby přežila přeinstalaci. `null`
+znamená „nezadáno" – nula by znamenala „nabíjím zdarma", což je něco
+jiného.
+
+## Zobrazování kWh
+
+Stavy počítadla i spotřeba se ukazují **na dvě desetinná místa**.
+Nabíječky je tak zobrazují a na jedno místo by se z 27,49 kWh stalo
+27,5 – tedy víc, než se opravdu nabilo. U podkladu k fakturaci to vadí,
+i když se přepočet dělá vždycky z přesné hodnoty, ne ze zobrazené.
+
 ## Mimo rozsah
 
-Ceny, sazby, výpočet částek, export ISDOC, schvalování. Stav `schvaleno`
-umí aplikace jen zobrazit v odznaku – nastavuje se mimo ni.
+Skutečné sazby, fakturace, export ISDOC, schvalování. Stav `schvaleno`
+umí aplikace jen zobrazit v odznaku – nastavuje se mimo ni. Přepočet
+podle vlastní sazby uživatele je odhad pro něj samotného, ne účtování;
+viz [Orientační cena](#orientační-cena).
 #   R e n o C h a r g e  
  

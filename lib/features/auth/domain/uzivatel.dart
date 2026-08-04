@@ -10,6 +10,7 @@ class Uzivatel {
     this.vytvorenoAt,
     this.onboardingAt,
     this.aktivniNabijeniId,
+    this.cenaZaKwh,
   });
 
   final String uid;
@@ -30,7 +31,25 @@ class Uzivatel {
   /// Prázdné, pokud uživatel právě nenabíjí.
   final String? aktivniNabijeniId;
 
+  /// Předpokládaná cena za kWh, kterou si uživatel zadal v nastavení.
+  ///
+  /// Slouží **výhradně k orientačnímu přepočtu** zobrazenému v aplikaci.
+  /// Fakturuje se mimo aplikaci a možná jinou sazbou, proto se spočítaná
+  /// částka nikam neukládá – dopočítává se z aktuálního nastavení a do
+  /// PDF reportu se nedostane. `null`, dokud si sazbu nikdo nezadal;
+  /// v tom případě aplikace o penězích nemluví vůbec.
+  final double? cenaZaKwh;
+
   bool get maOtevrenouRelaci => aktivniNabijeniId != null;
+
+  bool get maZadanouCenu => cenaZaKwh != null && cenaZaKwh! > 0;
+
+  /// Orientační částka za daný odběr, nebo `null`, když sazba není
+  /// zadaná nebo relace ještě neskončila.
+  double? castkaZa(double? spotrebaKwh) {
+    if (!maZadanouCenu || spotrebaKwh == null) return null;
+    return spotrebaKwh * cenaZaKwh!;
+  }
 
   bool get maHotovyOnboarding => onboardingAt != null;
 
@@ -51,6 +70,7 @@ class Uzivatel {
       vytvorenoAt: (data['vytvoreno_at'] as Timestamp?)?.toDate(),
       onboardingAt: (data['onboarding_at'] as Timestamp?)?.toDate(),
       aktivniNabijeniId: data['aktivni_nabijeni_id'] as String?,
+      cenaZaKwh: (data['cena_za_kwh'] as num?)?.toDouble(),
     );
   }
 }

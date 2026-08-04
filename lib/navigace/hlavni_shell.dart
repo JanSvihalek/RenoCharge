@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../common/motiv/barvy.dart';
 import '../features/nabijeni/presentation/domovska_obrazovka.dart';
 import '../features/nabijeni/presentation/historie_obrazovka.dart';
-import '../features/vozidla/presentation/vozidla_obrazovka.dart';
+import '../features/nastaveni/presentation/nastaveni_obrazovka.dart';
 
-enum Zalozka { domu, historie, vozidla }
+/// Vozidla mají vlastní sekci v nastavení, ne vlastní záložku – jinak by
+/// totéž bylo v aplikaci na dvou místech.
+enum Zalozka { domu, historie, nastaveni }
 
 /// Vybraná záložka. Je v provideru, aby na ni mohly sáhnout i obrazovky
 /// (např. prázdný stav, který posílá uživatele přidat si vozidlo).
@@ -40,7 +42,7 @@ class HlavniShell extends ConsumerWidget {
           children: const [
             DomovskaObrazovka(),
             HistorieObrazovka(),
-            VozidlaObrazovka(),
+            NastaveniObrazovka(),
           ],
         ),
       ),
@@ -87,10 +89,10 @@ class _TabBar extends StatelessWidget {
                 onTap: () => onZmena(Zalozka.historie),
               ),
               _Tab(
-                ikona: Icons.directions_car_outlined,
-                popisek: 'Vozidla',
-                aktivni: aktivni == Zalozka.vozidla,
-                onTap: () => onZmena(Zalozka.vozidla),
+                ikona: Icons.settings_outlined,
+                popisek: 'Nastavení',
+                aktivni: aktivni == Zalozka.nastaveni,
+                onTap: () => onZmena(Zalozka.nastaveni),
               ),
             ],
           ),

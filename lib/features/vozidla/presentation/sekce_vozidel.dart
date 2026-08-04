@@ -10,14 +10,18 @@ import '../application/vozidla_providery.dart';
 import '../domain/vozidlo.dart';
 
 /// Správa vlastních vozidel. SPZ je povinná, název nepovinný.
-class VozidlaObrazovka extends ConsumerStatefulWidget {
-  const VozidlaObrazovka({super.key});
+///
+/// Není to samostatná obrazovka, ale sekce vkládaná do nastavení –
+/// proto vrací `Column` a ne `ListView`. Vnořený posuvník uvnitř
+/// posuvníku by se choval divně.
+class SekceVozidel extends ConsumerStatefulWidget {
+  const SekceVozidel({super.key});
 
   @override
-  ConsumerState<VozidlaObrazovka> createState() => _VozidlaObrazovkaState();
+  ConsumerState<SekceVozidel> createState() => _SekceVozidelState();
 }
 
-class _VozidlaObrazovkaState extends ConsumerState<VozidlaObrazovka> {
+class _SekceVozidelState extends ConsumerState<SekceVozidel> {
   final _spz = TextEditingController();
   final _nazev = TextEditingController();
 
@@ -68,15 +72,9 @@ class _VozidlaObrazovkaState extends ConsumerState<VozidlaObrazovka> {
     final vozidla = ref.watch(vozidlaProvider);
     final probihaZapis = ref.watch(vozidlaControllerProvider).isLoading;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        Rozmery.okrajStranky,
-        0,
-        Rozmery.okrajStranky,
-        24,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const VelkyNadpis('Moje vozidla'),
         switch (vozidla) {
           AsyncError() => ChybovyBlok(
             zprava: 'Vozidla se nepodařilo načíst.',
