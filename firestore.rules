@@ -28,15 +28,20 @@ service cloud.firestore {
 
     // Metadata fotky: cesta ve Storage, otisk, čas pořízení z EXIF a to,
     // jestli snímek vznikl v aplikaci, nebo byl vybraný z galerie.
+    //
+    // `zdroj` přibyl později a je **nepovinný** schválně: povinné nové pole
+    // by okamžitě zneplatnilo každou verzi aplikace, která ho ještě
+    // neposílá. Když chybí, čte se jako 'fotoaparat'.
     function platnaFoto(foto) {
       return foto.keys().hasOnly(['path', 'sha256', 'porizeno_at', 'zdroj'])
-        && foto.keys().hasAll(['path', 'sha256', 'porizeno_at', 'zdroj'])
+        && foto.keys().hasAll(['path', 'sha256', 'porizeno_at'])
         && foto.path is string
         && foto.path.size() > 0
         && foto.sha256 is string
         && foto.sha256.size() == 64
         && foto.porizeno_at is timestamp
-        && foto.zdroj in ['fotoaparat', 'galerie'];
+        && (!foto.keys().hasAny(['zdroj'])
+            || foto.zdroj in ['fotoaparat', 'galerie']);
     }
 
     // ── Profil uživatele ───────────────────────────────────────────────

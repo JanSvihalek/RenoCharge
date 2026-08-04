@@ -57,6 +57,41 @@ class NabijeniRepository {
       .map((doc) => doc.exists ? Relace.zDokumentu(doc) : null)
       .handleError((Object chyba) => throw AppChyba.zFirebase(chyba));
 
+  /// Dokončené relace za období, od nejstarší – podklad pro PDF report.
+  ///
+  /// Jednorázový dotaz, ne stream: report je snímek k okamžiku vytvoření
+  /// a nemá se pod rukama měnit. Horní mez je exkluzivní, protože `doKonce`
+  /// je půlnoc následujícího dne – jinak by poslední den vypadl.
+  ///
+  /// Rozdělané relace se vyhazují až tady, ne dotazem. Filtr na `stav`
+  /// by si vyžádal další složený index kvůli rozsahu na `zahajeno`.
+  ///
+  /// Řadí se sestupně, protože přesně tak vypadá index, který už kolekce
+  /// má kvůli historii – vzestupné řazení by si vyžádalo druhý. Report
+  /// chce nejstarší nahoře, takže se výsledek obrátí až tady; jde
+  /// nanejvýš o desítky záznamů za období.
+  Future<List<Relace>> nactiZaObdobi({
+    required String uid,
+    required DateTime od,
+    required DateTime doKonce,
+  }) async {
+    try {
+      final snimek = await _relace
+          .where('uid', isEqualTo: uid)
+          .where('zahajeno', isGreaterThanOrEqualTo: Timestamp.fromDate(od))
+          .where('zahajeno', isLessThan: Timestamp.fromDate(doKonce))
+          .orderBy('zahajeno', descending: true)
+          .get();
+      return [
+        for (final doc in snimek.docs.reversed)
+          if (Relace.zDokumentu(doc) case final relace when !relace.probiha)
+            relace,
+      ];
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
+
   Future<Relace?> nacti(String relaceId) async {
     try {
       final doc = await _relace.doc(relaceId).get();

@@ -5,6 +5,7 @@ import '../features/nabijeni/presentation/detail_relace_obrazovka.dart';
 import '../features/nabijeni/presentation/foceni_obrazovka.dart';
 import '../features/nabijeni/presentation/rekapitulace_obrazovka.dart';
 import '../features/nabijeni/presentation/zahajeni_obrazovka.dart';
+import '../features/reporty/presentation/export_obrazovka.dart';
 
 /// Otevírání toků nad hlavním rámcem. Navigace je vnořená hierarchie
 /// obrazovek, ne router s vlastní historií – tyhle funkce jsou jediné
@@ -42,6 +43,12 @@ Future<void> otevriUkonceniPres(NavigatorState nav, Relace relace) async {
       ),
     ),
   );
+}
+
+void otevriExport(BuildContext context) {
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const ExportObrazovka()));
 }
 
 void otevriDetail(BuildContext context, String relaceId) {

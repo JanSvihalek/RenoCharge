@@ -98,7 +98,8 @@ lib/
   common/           motiv a tokeny, formátování, chyby, sdílené widgety
   features/
     auth/           přihlášení firemním účtem, profil uživatele
-    nabijeni/       relace, stanice, focení, OCR, historie
+    nabijeni/       relace, focení, OCR, historie
+    reporty/        export období do PDF
     vozidla/        vozidla uživatele
   navigace/         hlavní rámec s tab barem, otevírání toků
 ```
@@ -223,6 +224,38 @@ Heuristika výběru čísla ([ocr_sluzba.dart](lib/features/nabijeni/application
 zvýhodňuje čísla na řádku s „kWh", delší čísla a čísla s desetinami.
 Je pokrytá testy, takže se dá ladit podle toho, co konkrétní nabíječky
 v areálu na displeji ukazují.
+
+## Report do PDF
+
+Nad historií je tlačítko exportu: uživatel zvolí období (zkratky *tento
+měsíc* / *minulý měsíc*, nebo vlastní rozsah) a aplikace vyrobí PDF,
+které rovnou předá systémovému sdílení – odtud se dá poslat mailem.
+
+Rozvržení je tabulka všech nabíjení se součtem, za ní oddíl s fotkami po
+dvojicích začátek/konec. Kdo řeší jen čísla, dál nelistuje.
+
+Report je **snímek k okamžiku vytvoření**, proto jednorázový dotaz, ne
+stream. Zahrnuje jen dokončené relace a jen vlastní – security rules
+cizí data nepustí, takže hromadný přehled za všechny zaměstnance patří
+do webového portálu, ne sem.
+
+Tři věci, které nejsou zřejmé:
+
+**Fotky se pro PDF zmenšují** na 1000 px a kvalitu 70
+([zmenseni_fotky.dart](lib/features/reporty/application/zmenseni_fotky.dart)).
+V původní velikosti by měsíční report vyšel na 5–12 MB a přes leckterý
+mailový server by neprošel; takhle vyjde na 2–3 MB a číslo na displeji
+zůstane čitelné. Překódování běží přes `compute()` v jiné izolaci, jinak
+by na dvaceti snímcích sekalo UI.
+
+**Font se vkládá do dokumentu.** Vestavěná Helvetica z balíčku `pdf`
+neumí háčky ani čárky – „Švihálek" by se vysázel jako „Svihlek". Roboto
+v [assets/fonty/](assets/fonty/) je součástí Flutter SDK (Apache 2.0)
+a funguje i offline, na rozdíl od stahování z Google Fonts za běhu.
+
+**Horní mez období je exkluzivní.** Uživatel zadává „do" včetně toho dne,
+dotaz ale potřebuje půlnoc následujícího – jinak by relace zahájená
+poslední den v 7:12 z reportu vypadla.
 
 ## Mimo rozsah
 

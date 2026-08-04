@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../common/chyby.dart';
@@ -64,6 +66,20 @@ class FotoUloziste {
       porizenoAt: foto.porizenoAt,
       zdroj: foto.zdroj,
     );
+  }
+
+  /// Stáhne fotku do paměti – pro vložení do PDF reportu. Limit je
+  /// stejný jako u nahrávání, nic většího ve Storage vzniknout nemělo.
+  Future<Uint8List?> stahni(String cesta) async {
+    try {
+      return await _storage
+          .ref(cesta)
+          .getData(Konfigurace.maxVelikostFotoBajtu);
+    } catch (_) {
+      // Chybějící fotka nesmí shodit celý report – vynechá se a report
+      // to u dané relace přizná.
+      return null;
+    }
   }
 
   /// Odkaz ke stažení pro zobrazení náhledu v detailu relace.

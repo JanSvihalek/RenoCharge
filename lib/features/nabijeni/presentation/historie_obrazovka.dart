@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
+import '../../../common/widgety/tlacitka.dart';
 import '../../../navigace/toky.dart';
 import '../application/nabijeni_providery.dart';
 import 'widgety/relace_widgety.dart';
@@ -23,7 +24,15 @@ class HistorieObrazovka extends ConsumerWidget {
         24,
       ),
       children: [
-        const VelkyNadpis('Historie'),
+        VelkyNadpis(
+          'Historie',
+          akce: IkonoveTlacitko(
+            ikona: Icons.ios_share,
+            popisPristupnosti: 'Exportovat období do PDF',
+            sOramovanim: true,
+            onTap: () => otevriExport(context),
+          ),
+        ),
         switch (historie) {
           AsyncError() => ChybovyBlok(
             zprava: 'Historii se nepodařilo načíst.',
