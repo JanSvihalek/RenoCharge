@@ -1,5 +1,5 @@
 name: renocharge
-description: "Nabíjecí deník – evidence nabíjení soukromých vozidel na firemní nabíječce."
+description: "RenoCharge"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -58,6 +58,24 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # Generuje ikony pro obě platformy z jednoho zdroje.
+  flutter_launcher_icons: ^0.14.4
+
+# Všechny velikosti pro iOS i Android vyrobí `dart run flutter_launcher_icons`
+# ze zdrojů v assets/ikona/. Výsledky se commitují, aby build na CI nemusel
+# nic generovat. Jak zdroje vznikly popisuje README.
+flutter_launcher_icons:
+  # Plný čtverec bez průhlednosti. Zaoblení rohů si iOS dělá sám a App Store
+  # ikonu s alfa kanálem odmítne.
+  image_path: assets/ikona/ikona.png
+  ios: true
+  android: true
+  # Adaptivní ikona je dvouvrstvá a Android z ní podle výrobce vyřízne
+  # kolečko nebo zaoblený čtverec – proto blesk zvlášť s rezervou u krajů
+  # a gradient zvlášť přes celé plátno.
+  adaptive_icon_background: assets/ikona/ikona_pozadi.png
+  adaptive_icon_foreground: assets/ikona/ikona_popredi.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -362,24 +362,18 @@ class _VodiciRamecek extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const barva = Color(0xFFC6FF3A);
+    // Hledáček je vždy tmavý bez ohledu na motiv, proto se bere akcent
+    // z tmavé palety napřímo, ne z Theme.
+    final barva = AppBarvy.tmava.accent;
     Widget roh({required bool nahore, required bool vlevo}) => Container(
       width: 26,
       height: 26,
       decoration: BoxDecoration(
         border: Border(
-          top: nahore
-              ? const BorderSide(color: barva, width: 3)
-              : BorderSide.none,
-          bottom: nahore
-              ? BorderSide.none
-              : const BorderSide(color: barva, width: 3),
-          left: vlevo
-              ? const BorderSide(color: barva, width: 3)
-              : BorderSide.none,
-          right: vlevo
-              ? BorderSide.none
-              : const BorderSide(color: barva, width: 3),
+          top: nahore ? BorderSide(color: barva, width: 3) : BorderSide.none,
+          bottom: nahore ? BorderSide.none : BorderSide(color: barva, width: 3),
+          left: vlevo ? BorderSide(color: barva, width: 3) : BorderSide.none,
+          right: vlevo ? BorderSide.none : BorderSide(color: barva, width: 3),
         ),
       ),
     );

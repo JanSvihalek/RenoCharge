@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 /// Barevné tokeny podle návrhu. Hodnoty jsou finální – neměnit bez úpravy
 /// návrhové dokumentace (README v balíčku návrhu).
+///
+/// Akcentní barva je firemní modrá `#1B6FB8`. Ve světlém motivu se používá
+/// přesně; v tmavém je na pozadí `#0A0D0B` moc tmavá (kontrast 3,8:1), proto
+/// je zesvětlená při zachování odstínu i sytosti – viz [tmava].
 @immutable
 class AppBarvy extends ThemeExtension<AppBarvy> {
   const AppBarvy({
@@ -57,16 +61,18 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
     text: Color(0xFFF3F5F0),
     textDim: Color(0xFFA6B0A4),
     textFaint: Color(0xFF71796F),
-    accent: Color(0xFFC6FF3A),
+    // #1B6FB8 zesvětlená na HSL(208°, 74 %, 68 %) – stejný odstín i sytost,
+    // ale na téměř černém pozadí drží kontrast 8,6:1 místo 3,8:1.
+    accent: Color(0xFF71B1EA),
     accentText: Color(0xFF0A0D0B),
-    accentDim: Color(0x24C6FF3A), // rgba(198,255,58,0.14)
+    accentDim: Color(0x2471B1EA), // rgba(113,177,234,0.14)
     stop: Color(0xFFFF7A45),
     stopText: Color(0xFF0A0D0B),
     danger: Color(0xFFFF6E5C),
     odznakDokoncenoBg: Color(0xFF20261F),
     odznakDokoncenoText: Color(0xFFA6B0A4),
-    odznakSchvalenoBg: Color(0x29C6FF3A), // rgba(198,255,58,0.16)
-    odznakSchvalenoText: Color(0xFFC6FF3A),
+    odznakSchvalenoBg: Color(0x2971B1EA), // rgba(113,177,234,0.16)
+    odznakSchvalenoText: Color(0xFF71B1EA),
     odznakProbihaBg: Color(0x29FF7A45), // rgba(255,122,69,0.16)
     odznakProbihaText: Color(0xFFFF7A45),
   );
@@ -80,16 +86,16 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
     text: Color(0xFF12150F),
     textDim: Color(0xFF5B6357),
     textFaint: Color(0xFF8A9285),
-    accent: Color(0xFF3E7A16),
+    accent: Color(0xFF1B6FB8),
     accentText: Color(0xFFFFFFFF),
-    accentDim: Color(0x173E7A16), // rgba(62,122,22,0.09)
+    accentDim: Color(0x171B6FB8), // rgba(27,111,184,0.09)
     stop: Color(0xFFC6501F),
     stopText: Color(0xFFFFFFFF),
     danger: Color(0xFFC63B27),
     odznakDokoncenoBg: Color(0xFFEAEBE3),
     odznakDokoncenoText: Color(0xFF5B6357),
-    odznakSchvalenoBg: Color(0x1A3E7A16), // rgba(62,122,22,0.10)
-    odznakSchvalenoText: Color(0xFF3E7A16),
+    odznakSchvalenoBg: Color(0x1A1B6FB8), // rgba(27,111,184,0.10)
+    odznakSchvalenoText: Color(0xFF1B6FB8),
     odznakProbihaBg: Color(0x1FC6501F), // rgba(198,80,31,0.12)
     odznakProbihaText: Color(0xFFC6501F),
   );

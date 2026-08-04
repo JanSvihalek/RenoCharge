@@ -69,6 +69,38 @@ flutter run
 flutter test
 ```
 
+## Ikona aplikace
+
+V `assets/ikona/` je předloha `app-icon-1024.png` (modrý zaoblený čtverec
+s bleskem) a z ní odvozené tři zdroje, ze kterých se generuje zbytek:
+
+| Soubor | Co na něm je | Pro co |
+|---|---|---|
+| `ikona.png` | plný čtverec, bez alfa kanálu | iOS, starší Android |
+| `ikona_pozadi.png` | jen gradient přes celé plátno | spodní vrstva adaptivní ikony |
+| `ikona_popredi.png` | jen blesk na průhledném plátně | vrchní vrstva adaptivní ikony |
+
+Předloha se použít napřímo nedá ze dvou důvodů. Má **zaoblené rohy
+a v nich průhlednost**, jenže iOS si tvar zaobluje sám a alfa kanál
+v ikoně App Store odmítá – rohy je proto potřeba dopočítat, aby byl
+čtverec plný. A **adaptivní ikona Androidu je dvouvrstvá**: systém si
+z ní podle výrobce vyřízne kolečko nebo zaoblený čtverec, takže motiv
+musí být zvlášť a s rezervou u krajů.
+
+Obojí vyřeší [tools/priprav_ikony.py](tools/priprav_ikony.py) (potřebuje
+`pip install Pillow numpy`). Gradient předlohy je lineární ve směru
+úhlopříčky, takže se dá proložit a dopočítat i pro rohy, kde v předloze
+nic není. Skript si sám ověří, že se uvnitř tvaru nezměnil ani pixel
+a že na hranici doplněné části není šev.
+
+```bash
+python tools/priprav_ikony.py     # jen když se mění předloha
+dart run flutter_launcher_icons
+```
+
+Vygenerované soubory **patří do gitu** – build na CI je jen použije,
+negeneruje je znovu. Konfigurace je v [pubspec.yaml](pubspec.yaml).
+
 ## Struktura
 
 Feature-first, uvnitř každé feature `domain` / `data` / `application` /
