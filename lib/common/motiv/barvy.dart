@@ -23,6 +23,7 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
     required this.stop,
     required this.stopText,
     required this.danger,
+    required this.penize,
     required this.odznakDokoncenoBg,
     required this.odznakDokoncenoText,
     required this.odznakSchvalenoBg,
@@ -45,6 +46,10 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
   final Color stop;
   final Color stopText;
   final Color danger;
+
+  /// Barva pro peněžní částky. Zelená schválně – peníze si ji lidi
+  /// spojují a odliší se tím od akcentu, který nese kWh.
+  final Color penize;
   final Color odznakDokoncenoBg;
   final Color odznakDokoncenoText;
   final Color odznakSchvalenoBg;
@@ -69,6 +74,8 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
     stop: Color(0xFFFF7A45),
     stopText: Color(0xFF0A0D0B),
     danger: Color(0xFFFF6E5C),
+    // Kontrast 10,4:1 na pozadí #0A0D0B.
+    penize: Color(0xFF5FD38A),
     odznakDokoncenoBg: Color(0xFF20261F),
     odznakDokoncenoText: Color(0xFFA6B0A4),
     odznakSchvalenoBg: Color(0x2971B1EA), // rgba(113,177,234,0.16)
@@ -92,6 +99,8 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
     stop: Color(0xFFC6501F),
     stopText: Color(0xFFFFFFFF),
     danger: Color(0xFFC63B27),
+    // Kontrast 5,3:1 na bílé kartě, 4,7:1 na pozadí stránky.
+    penize: Color(0xFF1E7B3C),
     odznakDokoncenoBg: Color(0xFFEAEBE3),
     odznakDokoncenoText: Color(0xFF5B6357),
     odznakSchvalenoBg: Color(0x1A1B6FB8), // rgba(27,111,184,0.10)
@@ -116,6 +125,7 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
     Color? stop,
     Color? stopText,
     Color? danger,
+    Color? penize,
     Color? odznakDokoncenoBg,
     Color? odznakDokoncenoText,
     Color? odznakSchvalenoBg,
@@ -138,6 +148,7 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
       stop: stop ?? this.stop,
       stopText: stopText ?? this.stopText,
       danger: danger ?? this.danger,
+      penize: penize ?? this.penize,
       odznakDokoncenoBg: odznakDokoncenoBg ?? this.odznakDokoncenoBg,
       odznakDokoncenoText: odznakDokoncenoText ?? this.odznakDokoncenoText,
       odznakSchvalenoBg: odznakSchvalenoBg ?? this.odznakSchvalenoBg,
@@ -166,6 +177,7 @@ class AppBarvy extends ThemeExtension<AppBarvy> {
       stop: l(stop, other.stop),
       stopText: l(stopText, other.stopText),
       danger: l(danger, other.danger),
+      penize: l(penize, other.penize),
       odznakDokoncenoBg: l(odznakDokoncenoBg, other.odznakDokoncenoBg),
       odznakDokoncenoText: l(odznakDokoncenoText, other.odznakDokoncenoText),
       odznakSchvalenoBg: l(odznakSchvalenoBg, other.odznakSchvalenoBg),

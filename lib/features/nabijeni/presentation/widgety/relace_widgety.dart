@@ -91,16 +91,38 @@ class PredelMesice extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '${Format.kwh(skupina.celkemKwh)} kWh',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: b.accent),
-              ),
-              if (castka != null) ...[
+              // Když sazba není zadaná, nese hlavní roli spotřeba – jinak
+              // by v předělu zbylo jen drobné šedé číslo.
+              if (castka == null)
+                Text(
+                  '${Format.kwh(skupina.celkemKwh)} kWh',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: b.accent),
+                )
+              else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Slovo zůstává u částky i když je částka velká –
+                    // fakturuje se mimo aplikaci a jinou sazbou.
+                    Text(
+                      'orientačně ',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    Text(
+                      castka,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(color: b.penize),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 1),
                 Text(
-                  'orientačně $castka',
+                  '${Format.kwh(skupina.celkemKwh)} kWh',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
