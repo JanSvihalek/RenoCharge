@@ -6,8 +6,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- Název pod ikonou na ploše. Na malých displejích se zkracuje
+	     výpustkou, proto bez dovětků. -->
 	<key>CFBundleDisplayName</key>
-	<string>Nabíjecí deník</string>
+	<string>RenoCharge</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

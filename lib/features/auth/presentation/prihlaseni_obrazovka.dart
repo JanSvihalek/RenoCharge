@@ -92,14 +92,15 @@ class _PrihlaseniObrazovkaState extends ConsumerState<PrihlaseniObrazovka> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Nabíjecí deník',
+                      'RenoCharge',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 14),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 280),
                       child: Text(
-                        'Evidence nabíjení firemních vozidel v areálu',
+                        'Evidence nabíjení soukromých vozidel '
+                        'na firemní nabíječce',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: b.textDim,
                           height: 1.5,
