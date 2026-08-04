@@ -3,60 +3,51 @@ rules_version = '2';
 // Nabíjecí deník – pravidla pro Firebase Storage.
 //
 // Ve Storage leží výhradně fotky počítadla, vždy na cestě
-// `nabijeni/{relaceId}/{start|end}.jpg`. Co nemá pravidlo, je zakázané.
+// `nabijeni/{uid}/{relaceId}/{start|end}.jpg`. Co nemá pravidlo,
+// je zakázané.
+//
+// Vlastník je součástí cesty schválně. Dřív byla cesta bez uid
+// (`nabijeni/{relaceId}/…`) a pravidla se musela na vlastníka doptávat
+// Firestore přes `firestore.exists()`. Takové cross-service volání ale
+// Firebase podmiňuje zvláštním IAM oprávněním pro servisní účet Storage;
+// bez něj vyhodnocení pravidla selže a zápis se zamítne. To oprávnění
+// není v repozitáři, nasazuje se mimo `firebase deploy` a jde tiše
+// odebrat. S uid v cestě se vlastnictví ověří přímo z ní a na Firestore
+// se pravidla neptají vůbec.
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function prihlasen() {
-      return request.auth != null;
-    }
+    match /nabijeni/{uid}/{relaceId}/{soubor} {
 
-    function ja() {
-      return request.auth.uid;
-    }
+      function moje() {
+        return request.auth != null && uid == request.auth.uid;
+      }
 
-    function relaceExistuje(id) {
-      return firestore.exists(/databases/(default)/documents/nabijeni/$(id));
-    }
+      function platnyObrazek() {
+        return request.resource.size <= 5 * 1024 * 1024
+          && request.resource.contentType == 'image/jpeg';
+      }
 
-    function relace(id) {
-      return firestore.get(/databases/(default)/documents/nabijeni/$(id)).data;
-    }
+      function povolenyNazev() {
+        return soubor == 'start.jpg' || soubor == 'end.jpg';
+      }
 
-    function mojeRelace(id) {
-      return relaceExistuje(id) && relace(id).uid == ja();
-    }
+      allow read: if moje();
 
-    function mojeOtevrenaRelace(id) {
-      return mojeRelace(id) && relace(id).stav == 'probiha';
-    }
+      allow create: if moje() && povolenyNazev() && platnyObrazek();
 
-    function platnyObrazek() {
-      return request.resource.size <= 5 * 1024 * 1024
-        && request.resource.contentType == 'image/jpeg';
-    }
+      // Jednou nahraná fotka je neměnná – to je celý smysl otisku
+      // SHA-256 v dokumentu relace.
+      allow update: if false;
 
-    match /nabijeni/{relaceId}/{soubor} {
-
-      allow read: if prihlasen() && mojeRelace(relaceId);
-
-      // Počáteční fotka se nahrává ještě před založením dokumentu relace
-      // (ID se generuje dopředu, aby se odvodila cesta). Jakmile
-      // dokument existuje, je fotka neměnná.
+      // Mazat nesmí nikdo, ani vlastník. Bez dotazu do Firestore se tu
+      // nedá poznat, jestli fotka patří k existujícímu záznamu, a nechat
+      // uživatele mazat vlastní fotky by z důkazu udělalo přání.
       //
-      // Koncová fotka jde nahrát jen do vlastní, dosud otevřené relace.
-      allow create, update: if prihlasen()
-        && platnyObrazek()
-        && (
-          (soubor == 'start.jpg' && !relaceExistuje(relaceId))
-          || (soubor == 'end.jpg' && mojeOtevrenaRelace(relaceId))
-        );
-
-      // Úklid po neúspěšném zahájení: relace nevznikla, fotka po sobě
-      // nemá zůstat. Fotky existujících relací se nemažou.
-      allow delete: if prihlasen()
-        && soubor == 'start.jpg'
-        && !relaceExistuje(relaceId);
+      // Cenou je, že po neúspěšném zahájení relace zůstane ve Storage
+      // osiřelý snímek. Děje se to jen když selže transakce po úspěšném
+      // nahrání, jde o stovky kB a uklidit se to dá dávkově zvenčí.
+      allow delete: if false;
     }
   }
 }

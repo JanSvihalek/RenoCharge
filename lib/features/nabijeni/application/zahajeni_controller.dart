@@ -100,24 +100,24 @@ class ZahajeniController extends Notifier<ZahajeniStav> {
 
     try {
       final metadata = await uloziste.nahraj(
+        uid: uid,
         relaceId: relaceId,
         typ: TypFoto.start,
         foto: foto,
       );
-      try {
-        await repo.zahaj(
-          relaceId: relaceId,
-          uid: uid,
-          spz: vozidlo.spz,
-          vozidloId: volba.vozidloId!,
-          kwhStart: kwhStart,
-          fotoStart: metadata,
-        );
-      } catch (chyba) {
-        // Relace nevznikla – ať po ní ve Storage nezůstává fotka.
-        await uloziste.smazTiseji(metadata.path);
-        rethrow;
-      }
+      // Fotka je ve Storage dřív než záznam v Firestore, protože cesta
+      // se odvozuje z ID relace vygenerovaného dopředu. Když transakce
+      // selže, snímek tam zůstane osiřelý – mazat ho nejde a schválně:
+      // pravidla nedovolují smazat žádnou fotku nikomu, jinak by z důkazu
+      // bylo jen přání. Jde o stovky kB a uklidí se to dávkově zvenčí.
+      await repo.zahaj(
+        relaceId: relaceId,
+        uid: uid,
+        spz: vozidlo.spz,
+        vozidloId: volba.vozidloId!,
+        kwhStart: kwhStart,
+        fotoStart: metadata,
+      );
       state = _vychozi();
       return true;
     } catch (chyba) {

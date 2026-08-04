@@ -18,17 +18,21 @@ enum TypFoto {
 }
 
 /// Fotografie počítadla ve Firebase Storage.
-/// Cesta je vždy `nabijeni/{relaceId}/{start|end}.jpg`.
+///
+/// Cesta je vždy `nabijeni/{uid}/{relaceId}/{start|end}.jpg`. Uid v ní
+/// není jen pro pořádek – díky němu si `storage.rules` ověří vlastníka
+/// přímo z cesty a nemusí se doptávat Firestore. Viz komentář v pravidlech.
 class FotoUloziste {
   FotoUloziste({required FirebaseStorage storage}) : _storage = storage;
 
   final FirebaseStorage _storage;
 
-  static String cesta(String relaceId, TypFoto typ) =>
-      'nabijeni/$relaceId/${typ.nazevSouboru}.jpg';
+  static String cesta(String uid, String relaceId, TypFoto typ) =>
+      'nabijeni/$uid/$relaceId/${typ.nazevSouboru}.jpg';
 
   /// Nahraje fotku a vrátí metadata pro zápis do dokumentu relace.
   Future<FotoMetadata> nahraj({
+    required String uid,
     required String relaceId,
     required TypFoto typ,
     required PorizenaFotografie foto,
@@ -36,7 +40,7 @@ class FotoUloziste {
     if (foto.velikostBajtu > Konfigurace.maxVelikostFotoBajtu) {
       throw const NahraniFotoSelhalo();
     }
-    final cilovaCesta = cesta(relaceId, typ);
+    final cilovaCesta = cesta(uid, relaceId, typ);
     try {
       await _storage
           .ref(cilovaCesta)
@@ -88,16 +92,6 @@ class FotoUloziste {
       return await _storage.ref(cesta).getDownloadURL();
     } catch (chyba) {
       throw AppChyba.zFirebase(chyba);
-    }
-  }
-
-  /// Úklid po neúspěšném zahájení relace – ať ve Storage nezůstávají
-  /// fotky bez záznamu. Chyba při mazání se ignoruje.
-  Future<void> smazTiseji(String cesta) async {
-    try {
-      await _storage.ref(cesta).delete();
-    } catch (_) {
-      // Osiřelý soubor je menší problém než chyba nahlášená uživateli.
     }
   }
 }

@@ -128,6 +128,7 @@ Dva samostatné záznamy nikdy nevznikají.
 | Pravidlo | Kde |
 |---|---|
 | Jeden uživatel = nejvýš jedna otevřená relace | transakce + `uzivatele/{uid}.aktivni_nabijeni_id`; UI místo výběru nabídne ukončení té rozdělané |
+| Fotka jde nahrát, ale ne přepsat ani smazat | `storage.rules`: `create` jen vlastníkovi, `update` i `delete` zakázané |
 | `kwh_end > kwh_start` | pole na obrazovce focení, transakce i `firestore.rules` |
 | Po ukončení se záznamem nehne | `firestore.rules`: update jen ze stavu `probiha`, delete zakázaný |
 
@@ -169,6 +170,21 @@ pravidlo o jedinečnosti je „jeden uživatel = jedna otevřená relace".
 Až budou nabíječky označené, vrátí se to jako přidání pole do relace
 a jednoho kroku ve výběru; podobu z doby, kdy to v projektu bylo, má git
 v commitu předcházejícím tuhle změnu.
+
+**Uid je součástí cesty ve Storage** – `nabijeni/{uid}/{relaceId}/start.jpg`.
+Původně tam nebylo a `storage.rules` se na vlastníka doptávaly Firestore
+přes `firestore.exists()`. Jenže takové cross-service volání Firebase
+podmiňuje zvláštním IAM oprávněním pro servisní účet Storage: bez něj
+vyhodnocení pravidla **selže a zápis se zamítne**. To oprávnění není
+v repozitáři, nenasadí ho `firebase deploy` a dá se tiše odebrat – na
+takové věci se nedá stavět. S uid v cestě se vlastnictví ověří přímo
+z ní a pravidla se Firestore neptají vůbec.
+
+Cenou je, že se z pravidel nedá poznat, jestli fotka patří k existujícímu
+záznamu. Mazání je proto zakázané úplně, i vlastníkovi – jinak by z fotky
+jako důkazu bylo jen přání. Po neúspěšném zahájení relace tak ve Storage
+zůstane osiřelý snímek; děje se to jen když selže transakce po úspěšném
+nahrání a uklidí se to dávkově zvenčí.
 
 **`aktivni_nabijeni_id` na profilu.** Zadaný datový model ho neobsahuje;
 bez něj se ale požadavek „kontroluj to transakcí, ne dotazem" splnit
