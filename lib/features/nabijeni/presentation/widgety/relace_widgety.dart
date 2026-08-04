@@ -7,6 +7,7 @@ import '../../../../common/motiv/rozmery.dart';
 import '../../../../common/widgety/prvky.dart';
 import '../../../auth/application/auth_providery.dart';
 import '../../../vozidla/application/vozidla_providery.dart';
+import '../../domain/mesicni_skupina.dart';
 import '../../domain/relace.dart';
 
 /// Odznak stavu relace ve třech variantách podle návrhu.
@@ -61,6 +62,54 @@ String popisekVozidla(WidgetRef ref, Relace relace) {
 String? orientacniCastka(WidgetRef ref, double? spotreba) {
   final castka = ref.watch(profilProvider).value?.castkaZa(spotreba);
   return castka == null ? null : Format.castka(castka);
+}
+
+/// Předěl mezi měsíci v historii se součtem za daný měsíc.
+class PredelMesice extends ConsumerWidget {
+  const PredelMesice(this.skupina, {super.key});
+
+  final MesicniSkupina skupina;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final b = context.barvy;
+    final castka = orientacniCastka(ref, skupina.celkemKwh);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 18, bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Text(
+              Format.mesicARok(skupina.mesic).toUpperCase(),
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${Format.kwh(skupina.celkemKwh)} kWh',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: b.accent),
+              ),
+              if (castka != null) ...[
+                const SizedBox(height: 1),
+                Text(
+                  'orientačně $castka',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Řádek v seznamu relací (domovská obrazovka i historie).

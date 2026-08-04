@@ -296,6 +296,20 @@ Sazba je v profilu (`cena_za_kwh`), aby přežila přeinstalaci. `null`
 znamená „nezadáno" – nula by znamenala „nabíjím zdarma", což je něco
 jiného.
 
+## Předěly v historii
+
+Historie je rozdělená po měsících a každý předěl nese součet spotřeby
+a orientační částku. Typická otázka nad seznamem je „kolik jsem nabil
+minulý měsíc", ne „kolik celkem".
+
+Skupiny se skládají v [mesicni_skupina.dart](lib/features/nabijeni/domain/mesicni_skupina.dart)
+a nic nepřerovnávají – historie chodí z Firestore seřazená od nejnovější
+a předěly jen doplňují, co v seznamu už je. Měsíc bez relací nevznikne.
+
+**Běžící relace se do součtu nepočítá**, i když v seznamu zůstává. Nemá
+koncový stav, takže by měsíc do jejího ukončení tvrdil něco, co se pak
+změní.
+
 ## Zobrazování kWh
 
 Stavy počítadla i spotřeba se ukazují **na dvě desetinná místa**.

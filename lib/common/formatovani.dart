@@ -10,6 +10,7 @@ abstract final class Format {
   static final NumberFormat _castka = NumberFormat('#,##0.00', 'cs_CZ');
   static final NumberFormat _sazba = NumberFormat('#,##0.00', 'cs_CZ');
   static final DateFormat _datum = DateFormat('d. M. y', 'cs_CZ');
+  static final DateFormat _mesic = DateFormat('LLLL y', 'cs_CZ');
   static final DateFormat _cas = DateFormat('HH:mm', 'cs_CZ');
 
   /// Stav počítadla nebo spotřeba: `18 342,4`.
@@ -24,6 +25,16 @@ abstract final class Format {
 
   /// `1. 8. 2026`
   static String datum(DateTime cas) => _datum.format(cas.toLocal());
+
+  /// `Červenec 2026` – pro předěly mezi měsíci v historii.
+  ///
+  /// `LLLL` je samostatný tvar názvu měsíce („červenec"), zatímco `MMMM`
+  /// dává druhý pád („července"), který dává smysl jen uvnitř data.
+  static String mesicARok(DateTime cas) {
+    final text = _mesic.format(cas.toLocal());
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1);
+  }
 
   /// `07:12`
   static String cas(DateTime cas) => _cas.format(cas.toLocal());
