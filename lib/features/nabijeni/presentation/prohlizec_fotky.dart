@@ -21,75 +21,87 @@ class ProhlizecFotky extends ConsumerWidget {
       // Tmavé pozadí bez ohledu na motiv – u fotky se hodí, ať kolem ní
       // nic nesvítí.
       backgroundColor: const Color(0xFF0A0A0A),
+      // Velikost Stacku určují jeho **nepozicované** děti a Scaffold sem
+      // posílá volné constraints (jen horní mez). Dokud byla fotka
+      // v Positioned.fill a nepozicovaná byla horní lišta, scvrkl se Stack
+      // na jejích šedesát bodů a fotka se zobrazila jako proužek nahoře.
+      // Proto je nepozicovaná fotka a lišta pozicovaná.
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            child: switch (odkaz) {
-              AsyncData(:final value) => InteractiveViewer(
-                minScale: 1,
-                maxScale: 6,
-                child: Center(
-                  child: Image.network(
-                    value,
-                    fit: BoxFit.contain,
-                    loadingBuilder: (_, dite, prubeh) => prubeh == null
-                        ? dite
-                        : const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
+          switch (odkaz) {
+            AsyncData(:final value) => InteractiveViewer(
+              minScale: 1,
+              maxScale: 6,
+              child: Image.network(
+                value,
+                fit: BoxFit.contain,
+                // Bez explicitní velikosti by se obrázek vysázel podle
+                // svých vlastních rozměrů; takhle vyplní plochu a poměr
+                // stran drží BoxFit.
+                width: double.infinity,
+                height: double.infinity,
+                loadingBuilder: (_, dite, prubeh) => prubeh == null
+                    ? dite
+                    : const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                errorBuilder: (_, _, _) =>
+                    const _Nedostupna('Fotku se nepodařilo načíst.'),
+              ),
+            ),
+            AsyncError() => const _Nedostupna(
+              'Fotku se nepodařilo načíst. Zkontrolujte prosím připojení.',
+            ),
+            _ => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          },
+          // Lišta patří nahoru, ne přes celou plochu – s roztaženým
+          // Stackem by se jinak tlačítko vycentrovalo doprostřed.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: Row(
+                  children: [
+                    Semantics(
+                      button: true,
+                      label: 'Zavřít fotku',
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            color: Color(0x66000000),
+                            shape: BoxShape.circle,
                           ),
-                    errorBuilder: (_, _, _) =>
-                        const _Nedostupna('Fotku se nepodařilo načíst.'),
-                  ),
-                ),
-              ),
-              AsyncError() => const _Nedostupna(
-                'Fotku se nepodařilo načíst. Zkontrolujte prosím připojení.',
-              ),
-              _ => const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-              child: Row(
-                children: [
-                  Semantics(
-                    button: true,
-                    label: 'Zavřít fotku',
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: Color(0x66000000),
-                          shape: BoxShape.circle,
+                          child: const Icon(
+                            Icons.close,
+                            size: 20,
+                            color: Colors.white,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.close,
-                          size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        popisek,
+                        style: const TextStyle(
                           color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          shadows: [Shadow(blurRadius: 6)],
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      popisek,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        shadows: [Shadow(blurRadius: 6)],
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
