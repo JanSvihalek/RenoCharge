@@ -124,19 +124,14 @@ class OdkazoveTlacitko extends StatelessWidget {
     super.key,
     required this.popisek,
     required this.onTap,
-    this.barva,
   });
 
   final String popisek;
   final VoidCallback? onTap;
 
-  /// Pro tlačítka mimo motiv – třeba na tmavém hledáčku fotoaparátu,
-  /// kde by se barva ze světlé palety ztratila.
-  final Color? barva;
-
   @override
   Widget build(BuildContext context) {
-    final barvaTextu = barva ?? context.barvy.textDim;
+    final barvaTextu = context.barvy.textDim;
     return _Stisk(
       aktivni: onTap != null,
       onTap: onTap,
@@ -211,7 +206,6 @@ class VolbaKarta extends StatelessWidget {
     required this.onTap,
     required this.child,
     this.vyska = Rozmery.vyskaRadku,
-    this.vyplnitPriVyberu = false,
     this.vycentrovat = false,
   });
 
@@ -219,17 +213,12 @@ class VolbaKarta extends StatelessWidget {
   final VoidCallback onTap;
   final Widget child;
   final double vyska;
-
-  /// Konektor A/B se při výběru vyplní plnou akcentní barvou.
-  final bool vyplnitPriVyberu;
   final bool vycentrovat;
 
   @override
   Widget build(BuildContext context) {
     final b = context.barvy;
-    final pozadi = vybrano
-        ? (vyplnitPriVyberu ? b.accent : b.accentDim)
-        : b.surface;
+    final pozadi = vybrano ? b.accentDim : b.surface;
     return _Stisk(
       onTap: onTap,
       child: Container(

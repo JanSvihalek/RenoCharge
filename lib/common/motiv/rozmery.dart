@@ -8,7 +8,6 @@ abstract final class Rozmery {
   static const double tlacitkoPrimarni = 60;
   static const double tlacitkoVelke = 64;
   static const double tlacitkoIkona = 44;
-  static const double spoustZaverky = 76;
 
   static const double radiusKarty = 20;
   static const double radiusPolozky = 14;

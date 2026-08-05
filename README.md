@@ -229,11 +229,17 @@ jako prototyp. Trvalé uložení by znamenalo přidat `shared_preferences`.
 ## Focení a OCR
 
 Fotoaparát se otevře hned po vstupu na obrazovku focení – uživatel stojí
-u nabíječky a nemá důvod ťukat na další tlačítko. Když ho zavře, zůstane
-na obrazovce s volbou mezi spouští a galerií; ven vede křížek nahoře.
-Po vyfocení se snímek zmenší na 1600 px (kvalita 80), spočítá se SHA-256
-přesně těch bajtů, které jdou do Storage, a on-device OCR se pokusí najít
-hodnotu.
+u nabíječky a nemá důvod ťukat na další tlačítko. Po vyfocení se snímek
+zmenší na 1600 px (kvalita 80), spočítá se SHA-256 přesně těch bajtů,
+které jdou do Storage, a on-device OCR se pokusí najít hodnotu.
+
+**Aplikace nemá vlastní hledáček.** Fotí systémový fotoaparát ve vlastní
+obrazovce, `image_picker` živý obraz nepředává. Obrazovka focení proto
+pod ním ukazuje jen tmavý podklad s popisem, co se právě děje – dřív tu
+byla spoušť s vodicím rámečkem a vypadalo to, jako by se otevíraly dva
+fotoaparáty za sebou. Když uživatel focení zavře bez snímku, řekne se
+mu, že bez fotky záznam nevznikne, a nabídnou se obě cesty (fotoaparát,
+galerie). Ven vede křížek nahoře.
 
 OCR je **pomůcka, ne autorita**: pole je vždy přepisovatelné a bez
 potvrzení tlačítkem se nikam nezapíše. Když se číslo přečíst nepodaří,
@@ -243,6 +249,11 @@ Heuristika výběru čísla ([ocr_sluzba.dart](lib/features/nabijeni/application
 zvýhodňuje čísla na řádku s „kWh", delší čísla a čísla s desetinami.
 Je pokrytá testy, takže se dá ladit podle toho, co konkrétní nabíječky
 v areálu na displeji ukazují.
+
+V detailu relace jde na náhled fotky **klepnout** a otevře se přes celou
+obrazovku se zvětšováním prsty. Kvůli tomu se fotí – při kontrole odečtu
+je potřeba si číslo na displeji přiblížit a náhled ve dvou sloupcích je
+na to malý.
 
 ## Report do PDF
 

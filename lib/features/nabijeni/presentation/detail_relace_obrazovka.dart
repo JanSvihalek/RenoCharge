@@ -7,6 +7,7 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
 import '../application/nabijeni_providery.dart';
 import '../domain/relace.dart';
+import 'prohlizec_fotky.dart';
 import 'widgety/relace_widgety.dart';
 
 /// Detail jedné relace včetně obou fotek počítadla.
@@ -151,6 +152,20 @@ class _Obsah extends ConsumerWidget {
   }
 }
 
+class _OdznakLupy extends StatelessWidget {
+  const _OdznakLupy();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(5),
+    decoration: const BoxDecoration(
+      color: Color(0x8C000000),
+      shape: BoxShape.circle,
+    ),
+    child: const Icon(Icons.zoom_out_map, size: 14, color: Colors.white),
+  );
+}
+
 /// Náhled fotky počítadla ze Storage.
 class _Nahled extends ConsumerWidget {
   const _Nahled({required this.popisek, required this.cesta});
@@ -162,39 +177,71 @@ class _Nahled extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
     final cestaKFotce = cesta;
+    final maFotku = cestaKFotce != null && cestaKFotce.isNotEmpty;
 
     return Column(
       children: [
-        AspectRatio(
-          aspectRatio: 4 / 3,
-          child: Container(
-            decoration: BoxDecoration(
-              color: b.surface2,
-              borderRadius: BorderRadius.circular(Rozmery.radiusMale),
-              border: Border.all(color: b.border),
+        Semantics(
+          button: maFotku,
+          label: maFotku ? 'Zobrazit fotku: $popisek' : null,
+          child: GestureDetector(
+            // Náhled je moc malý na to, aby se z něj dalo přečíst číslo
+            // na displeji – klepnutím se otevře přes celou obrazovku.
+            onTap: maFotku
+                ? () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) =>
+                          ProhlizecFotky(cesta: cestaKFotce, popisek: popisek),
+                    ),
+                  )
+                : null,
+            child: AspectRatio(
+              aspectRatio: 4 / 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: b.surface2,
+                  borderRadius: BorderRadius.circular(Rozmery.radiusMale),
+                  border: Border.all(color: b.border),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: !maFotku
+                    ? Icon(Icons.photo_camera_outlined, color: b.textFaint)
+                    : switch (ref.watch(odkazNaFotkuProvider(cestaKFotce))) {
+                        AsyncData(:final value) => Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              value,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Icon(
+                                Icons.broken_image_outlined,
+                                color: b.textFaint,
+                              ),
+                            ),
+                            // Náznak, že se dá klepnout – bez něj to
+                            // vypadá jako statický obrázek.
+                            const Positioned(
+                              right: 6,
+                              bottom: 6,
+                              child: _OdznakLupy(),
+                            ),
+                          ],
+                        ),
+                        AsyncError() => Icon(
+                          Icons.broken_image_outlined,
+                          color: b.textFaint,
+                        ),
+                        _ => const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      },
+              ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: cestaKFotce == null || cestaKFotce.isEmpty
-                ? Icon(Icons.photo_camera_outlined, color: b.textFaint)
-                : switch (ref.watch(odkazNaFotkuProvider(cestaKFotce))) {
-                    AsyncData(:final value) => Image.network(
-                      value,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          Icon(Icons.broken_image_outlined, color: b.textFaint),
-                    ),
-                    AsyncError() => Icon(
-                      Icons.broken_image_outlined,
-                      color: b.textFaint,
-                    ),
-                    _ => const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  },
           ),
         ),
         const SizedBox(height: 6),

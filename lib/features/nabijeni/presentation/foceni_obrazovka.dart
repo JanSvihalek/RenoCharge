@@ -49,12 +49,23 @@ class FoceniObrazovka extends ConsumerStatefulWidget {
   ConsumerState<FoceniObrazovka> createState() => _FoceniObrazovkaState();
 }
 
-enum _Faze { pripraveno, zpracovava, vysledek }
+/// `pracuje` pokrývá otevírání fotoaparátu i následné čtení snímku,
+/// `zruseno` je stav po zavření fotoaparátu bez snímku.
+enum _Faze { pracuje, zruseno, vysledek }
 
 class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
   final _pole = TextEditingController();
 
-  _Faze _faze = _Faze.pripraveno;
+  /// Začíná se rovnou v `pracuje`, protože fotoaparát se otevírá hned.
+  /// Kdyby byl výchozí stav se spouští, blikla by před systémovým
+  /// fotoaparátem vlastní obrazovka fotoaparátu – dva fotoaparáty za
+  /// sebou, které aplikace nikdy neuměla obsluhovat.
+  _Faze _faze = _Faze.pracuje;
+  String _prubeh = 'Otevírám fotoaparát…';
+
+  /// Brání druhému spuštění, dokud první neskončí – dvě otevření
+  /// fotoaparátu naráz nedávají smysl.
+  bool _jizBezi = false;
   PorizenaFotografie? _foto;
   bool _ocrUspelo = false;
   bool _rucniZadavani = false;
@@ -79,13 +90,19 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
   Future<void> _zGalerie() => _nacti(ZdrojFoto.galerie);
 
   Future<void> _nacti(ZdrojFoto zdroj) async {
-    if (_faze == _Faze.zpracovava) return;
+    if (_jizBezi) return;
+    _jizBezi = true;
     setState(() {
-      _faze = _Faze.zpracovava;
+      _faze = _Faze.pracuje;
+      _prubeh = zdroj == ZdrojFoto.fotoaparat
+          ? 'Otevírám fotoaparát…'
+          : 'Otevírám galerii…';
       _chyba = null;
     });
     try {
       final foto = await ref.read(fotoSluzbaProvider).nactiPocitadlo(zdroj);
+      if (!mounted) return;
+      setState(() => _prubeh = 'Čtu hodnotu ze snímku…');
       final hodnota = await ref
           .read(ocrSluzbaProvider)
           .najdiHodnotu(foto.cestaVSouborovemSystemu);
@@ -101,11 +118,13 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
       if (!mounted) return;
       // Zrušený výběr obrazovku nezavírá – uživatel se tím dostane
       // k volbě mezi fotoaparátem a galerií. Ven vede křížek nahoře.
-      setState(() => _faze = _foto == null ? _Faze.pripraveno : _Faze.vysledek);
+      setState(() => _faze = _foto == null ? _Faze.zruseno : _Faze.vysledek);
     } catch (chyba) {
       if (!mounted) return;
-      setState(() => _faze = _foto == null ? _Faze.pripraveno : _Faze.vysledek);
+      setState(() => _faze = _foto == null ? _Faze.zruseno : _Faze.vysledek);
       ukazChybu(context, chyba);
+    } finally {
+      _jizBezi = false;
     }
   }
 
@@ -146,7 +165,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
               onZavrit: () => Navigator.of(context).pop(),
             ),
             Expanded(child: _nahled()),
-            if (_faze == _Faze.pripraveno) _spoust(),
+            if (_faze == _Faze.zruseno) _panelZruseno(),
             if (_faze == _Faze.vysledek) _panelVysledku(),
           ],
         ),
@@ -154,72 +173,79 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     );
   }
 
+  /// Plocha nad panelem. Dokud snímek není, je tu jen tmavý podklad –
+  /// žádné rámečky ani spoušť, protože živý obraz z fotoaparátu tudy
+  /// neteče. Fotí systémový fotoaparát ve vlastní obrazovce.
   Widget _nahled() {
     final foto = _foto;
+    final ukazujeSnimek = foto != null && _faze == _Faze.vysledek;
+
     return Stack(
       alignment: Alignment.center,
       children: [
         Positioned.fill(
-          child: foto == null || _faze == _Faze.zpracovava
-              ? const DecoratedBox(
+          child: ukazujeSnimek
+              ? Image.memory(foto.bajty, fit: BoxFit.cover)
+              : const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: RadialGradient(
                       colors: [Color(0xFF262626), Color(0xFF0A0A0A)],
                       radius: 0.75,
                     ),
                   ),
-                )
-              : Image.memory(foto.bajty, fit: BoxFit.cover),
+                ),
         ),
-        if (_faze == _Faze.zpracovava)
-          const CircularProgressIndicator(color: Colors.white)
-        else if (_faze == _Faze.pripraveno)
-          const _VodiciRamecek(),
-        if (_faze == _Faze.pripraveno)
-          const Positioned(
-            bottom: 24,
-            left: 24,
-            right: 24,
-            child: Text(
-              'Zarovnejte displej počítadla do rámečku',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
+        if (_faze == _Faze.pracuje)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 14),
+              Text(
+                _prubeh,
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ],
           ),
       ],
     );
   }
 
-  Widget _spoust() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+  /// Stav po zavření fotoaparátu bez snímku. Dřív tu byla vlastní
+  /// spoušť s rámečkem, což vypadalo jako druhý fotoaparát – jenže
+  /// aplikace vlastní hledáček nemá a klepnutí jen znovu otevře ten
+  /// systémový. Radši se řekne, co se stalo, a nabídnou obě cesty.
+  Widget _panelZruseno() {
+    final b = context.barvy;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: b.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Semantics(
-            button: true,
-            label: 'Vyfotit počítadlo',
-            child: GestureDetector(
-              onTap: _vyfot,
-              child: Container(
-                width: Rozmery.spoustZaverky,
-                height: Rozmery.spoustZaverky,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24, width: 5),
-                ),
-              ),
-            ),
+          Text(
+            'Zatím není co uložit',
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 4),
-          // Panel stojí na tmavém hledáčku, proto barva natvrdo –
-          // barvy z motivu by se tu podle světlého režimu ztratily.
-          OdkazoveTlacitko(
-            popisek: 'Vybrat fotku z galerie',
-            barva: Colors.white70,
-            onTap: _zGalerie,
+          const SizedBox(height: 8),
+          _Popisek(
+            'Bez fotky počítadla se záznam založit nedá. '
+            'Vyfoťte displej, nebo použijte snímek, který už máte '
+            'v telefonu.',
           ),
+          const SizedBox(height: 14),
+          PrimarniTlacitko(
+            popisek: 'Vyfotit počítadlo',
+            ikona: Icons.photo_camera_outlined,
+            vyska: 58,
+            onTap: _vyfot,
+          ),
+          OdkazoveTlacitko(popisek: 'Vybrat fotku z galerie', onTap: _zGalerie),
         ],
       ),
     );
@@ -366,54 +392,6 @@ class _HorniPruh extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 40),
-        ],
-      ),
-    );
-  }
-}
-
-/// Čtyři rohové značky, které naznačují, kam displej zamířit.
-class _VodiciRamecek extends StatelessWidget {
-  const _VodiciRamecek();
-
-  @override
-  Widget build(BuildContext context) {
-    // Hledáček je vždy tmavý bez ohledu na motiv, proto se bere akcent
-    // z tmavé palety napřímo, ne z Theme.
-    final barva = AppBarvy.tmava.accent;
-    Widget roh({required bool nahore, required bool vlevo}) => Container(
-      width: 26,
-      height: 26,
-      decoration: BoxDecoration(
-        border: Border(
-          top: nahore ? BorderSide(color: barva, width: 3) : BorderSide.none,
-          bottom: nahore ? BorderSide.none : BorderSide(color: barva, width: 3),
-          left: vlevo ? BorderSide(color: barva, width: 3) : BorderSide.none,
-          right: vlevo ? BorderSide.none : BorderSide(color: barva, width: 3),
-        ),
-      ),
-    );
-
-    return SizedBox(
-      width: 260,
-      height: 160,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              roh(nahore: true, vlevo: true),
-              roh(nahore: true, vlevo: false),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              roh(nahore: false, vlevo: true),
-              roh(nahore: false, vlevo: false),
-            ],
-          ),
         ],
       ),
     );
