@@ -1,5 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Co uživatel v aplikaci smí. Chybějící role v profilu znamená běžného
+/// zaměstnance – ten vidí jen nabíjení vlastních vozidel.
+///
+/// Roli **nastavuje výhradně správce v konzoli**; uživatel si ji sám
+/// změnit nemůže, hlídají to `firestore.rules`.
+enum Role {
+  zamestnanec(null, 'Zaměstnanec'),
+  udrzba('udrzba', 'Údržba');
+
+  const Role(this.klic, this.popisek);
+
+  /// Hodnota v Firestore. `null` znamená, že pole v profilu chybí.
+  final String? klic;
+  final String popisek;
+
+  static Role zKlice(String? klic) =>
+      klic == udrzba.klic ? udrzba : zamestnanec;
+}
+
 /// Profil uživatele – dokument `uzivatele/{uid}`.
 class Uzivatel {
   const Uzivatel({
@@ -11,6 +30,7 @@ class Uzivatel {
     this.onboardingAt,
     this.aktivniNabijeniId,
     this.cenaZaKwh,
+    this.role = Role.zamestnanec,
   });
 
   final String uid;
@@ -39,6 +59,10 @@ class Uzivatel {
   /// PDF reportu se nedostane. `null`, dokud si sazbu nikdo nezadal;
   /// v tom případě aplikace o penězích nemluví vůbec.
   final double? cenaZaKwh;
+
+  final Role role;
+
+  bool get jeUdrzba => role == Role.udrzba;
 
   bool get maOtevrenouRelaci => aktivniNabijeniId != null;
 
@@ -71,6 +95,7 @@ class Uzivatel {
       onboardingAt: (data['onboarding_at'] as Timestamp?)?.toDate(),
       aktivniNabijeniId: data['aktivni_nabijeni_id'] as String?,
       cenaZaKwh: (data['cena_za_kwh'] as num?)?.toDouble(),
+      role: Role.zKlice(data['role'] as String?),
     );
   }
 }

@@ -291,8 +291,9 @@ poboček a rolí v aplikaci; obojí dělá správce v konzoli.
 
 ## Postup
 
-1. Role na profilu, pravidla a skrytí záložky – nejmenší krok, po kterém
-   jde ověřit, že běžný zaměstnanec nic nového nevidí.
+1. ~~Role na profilu a pravidla.~~ **Hotovo.** `Uzivatel.role`,
+   `roleProvider`, pravidla nasazená. Skrytí záložky přijde s krokem 2 –
+   dřív není co skrývat.
 2. Pobočky a elektroměry: seznam, přidání, detail. Bez odečtů.
 3. Odečty: focení, zápis transakcí, historie v detailu.
 4. Report a CSV.

@@ -35,6 +35,13 @@ final profilProvider = StreamProvider<Uzivatel?>((ref) {
   return ref.watch(uzivateleRepositoryProvider).sleduj(uid);
 });
 
+/// Role přihlášeného uživatele. Dokud se profil načítá, platí ta
+/// slabší – nová část aplikace se tím nemihne uživateli, který na ni
+/// nemá právo.
+final roleProvider = Provider<Role>((ref) {
+  return ref.watch(profilProvider).value?.role ?? Role.zamestnanec;
+});
+
 /// Řízení průběhu přihlášení a odhlášení.
 class PrihlaseniController extends AsyncNotifier<void> {
   @override

@@ -163,9 +163,12 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
                 popisek: 'Osobní číslo',
                 hodnota: profil?.osobniCislo ?? '—',
               ),
+              RadekDat(popisek: 'E-mail', hodnota: profil?.email ?? '—'),
+              // Role se ukazuje, aby si člověk mohl ověřit, co v aplikaci
+              // smí, když mu něco chybí. Měnit ji tady nejde schválně.
               RadekDat(
-                popisek: 'E-mail',
-                hodnota: profil?.email ?? '—',
+                popisek: 'Oprávnění',
+                hodnota: (profil?.role ?? Role.zamestnanec).popisek,
                 posledni: true,
               ),
             ],

@@ -101,4 +101,32 @@ void main() {
       expect(sCenou(6.5).castkaZa(null), isNull);
     });
   });
+
+  group('role', () {
+    // Roli nastavuje výhradně správce v konzoli. Chybějící pole proto
+    // nesmí znamenat nic jiného než běžného zaměstnance.
+    Uzivatel sRoli(Role role) =>
+        Uzivatel(uid: 'u1', jmeno: 'Jan', email: 'jan@firma.cz', role: role);
+
+    test('bez role je uživatel zaměstnanec', () {
+      expect(_uzivatel('Jan').role, Role.zamestnanec);
+      expect(_uzivatel('Jan').jeUdrzba, isFalse);
+    });
+
+    test('klíč z Firestore se přeloží na roli', () {
+      expect(Role.zKlice('udrzba'), Role.udrzba);
+      expect(Role.zKlice(null), Role.zamestnanec);
+    });
+
+    test('neznámý klíč nedává oprávnění navíc', () {
+      expect(Role.zKlice('spravce'), Role.zamestnanec);
+      expect(Role.zKlice(''), Role.zamestnanec);
+      expect(Role.zKlice('UDRZBA'), Role.zamestnanec);
+    });
+
+    test('údržba se pozná', () {
+      expect(sRoli(Role.udrzba).jeUdrzba, isTrue);
+      expect(sRoli(Role.zamestnanec).jeUdrzba, isFalse);
+    });
+  });
 }

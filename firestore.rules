@@ -53,7 +53,7 @@ service cloud.firestore {
       function povolenaPole() {
         return nova().keys().hasOnly([
           'jmeno', 'email', 'osobni_cislo', 'vytvoreno_at',
-          'onboarding_at', 'aktivni_nabijeni_id', 'cena_za_kwh'
+          'onboarding_at', 'aktivni_nabijeni_id', 'cena_za_kwh', 'role'
         ])
         && nova().jmeno is string
         && nova().jmeno.size() <= 80
@@ -72,14 +72,30 @@ service cloud.firestore {
                 && nova().cena_za_kwh < 1000));
       }
 
+      // Role rozhoduje o tom, co uživatel v aplikaci smí, takže si ji
+      // nesmí nastavit sám – jinak by si každý připsal 'udrzba'. Přidává
+      // ji výhradně správce v konzoli, kde pravidla neplatí.
+      //
+      // Porovnává se i přítomnost klíče, ne jen hodnota: bez toho by šlo
+      // roli přidat do profilu, který ji dosud neměl.
+      function roleNezmenena() {
+        return nova().keys().hasAny(['role']) == stara().keys().hasAny(['role'])
+          && (!nova().keys().hasAny(['role'])
+              || nova().role == stara().role);
+      }
+
       allow read: if mujProfil();
 
-      allow create: if mujProfil() && povolenaPole();
+      // Profil zakládá aplikace při prvním přihlášení, a to bez role.
+      allow create: if mujProfil()
+        && povolenaPole()
+        && !nova().keys().hasAny(['role']);
 
       // `vytvoreno_at` se zapisuje jen jednou, při vzniku profilu.
       allow update: if mujProfil()
         && povolenaPole()
-        && nova().vytvoreno_at == stara().vytvoreno_at;
+        && nova().vytvoreno_at == stara().vytvoreno_at
+        && roleNezmenena();
 
       allow delete: if false;
 
