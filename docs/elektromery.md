@@ -50,9 +50,6 @@ osobní údaj a jednodušší pravidla znamenají míň míst, kde udělat chybu
 uzivatele/{uid}                … stávající pole +
                                role?: 'udrzba'          ← mění jen správce
 
-pobocky/{id}                   nazev, poradi
-                               spravuje správce, klient jen čte
-
 elektromery/{id}               pobocka_id, cislo, nazev,
                                aktivni: bool,
                                foto_zarizeni?: {path, sha256, porizeno_at, zdroj},
@@ -67,6 +64,16 @@ odecty/{id}                    elektromer_id, pobocka_id, uid,
                                poznamka?,
                                vytvoreno_at
 ```
+
+**Pobočky nejsou v Firestore.** Zadání s kolekcí `pobocky` počítalo, ale
+sedm areálů s ustálenými kódy (BSL, CLI, CSK, PKC, PBU, NUP, ZLN) se
+prakticky nemění. Jsou proto konstantou v kódu
+([pobocka.dart](../lib/features/elektromery/domain/pobocka.dart)) – odpadla
+kolekce, její pravidla, index, ruční plnění v konzoli i stav „načítám
+pobočky". Cenou je, že přidání pobočky znamená nový build.
+
+V modelu se drží **kód jako řetězec**, ne jako výčtová hodnota: kdyby se
+pobočka z kódu odebrala, její elektroměry nesmí zmizet ze seznamu.
 
 **`cislo`** je výrobní číslo ze štítku, **`nazev`** je kde elektroměr je
 (*„Hala B – rozvaděč R3"*). Podle obojího se v seznamu vyhledává.
@@ -93,7 +100,7 @@ nemaže se – historie musí zůstat čitelná.
 ### Indexy
 
 ```
-elektromery   pobocka_id ASC,   nazev ASC
+elektromery   pobocka_id ASC,    nazev ASC          ← nasazeno
 odecty        elektromer_id ASC, odecteno_at DESC
 odecty        pobocka_id ASC,    odecteno_at DESC
 ```
@@ -192,11 +199,6 @@ function role() {
 }
 function jeUdrzba() { return role() == 'udrzba'; }
 
-match /pobocky/{id} {
-  allow read: if prihlasen();
-  allow write: if false;                    // správce v konzoli
-}
-
 match /elektromery/{id} {
   allow read: if prihlasen();
   allow create, update: if jeUdrzba() && tvarElektromeru();
@@ -294,7 +296,11 @@ poboček a rolí v aplikaci; obojí dělá správce v konzoli.
 1. ~~Role na profilu a pravidla.~~ **Hotovo.** `Uzivatel.role`,
    `roleProvider`, pravidla nasazená. Skrytí záložky přijde s krokem 2 –
    dřív není co skrývat.
-2. Pobočky a elektroměry: seznam, přidání, detail. Bez odečtů.
+2. ~~Pobočky a elektroměry: seznam, přidání, detail. Bez odečtů.~~
+   **Hotovo.** Pobočky konstantou, kolekce `elektromery` s pravidly
+   a indexem, záložka viditelná jen údržbě, seznam s výběrem pobočky
+   a hledáním, formulář a detail. Identifikační fotka zařízení zatím ne –
+   přijde s krokem 3, kde se stejně musí zobecnit `FotoUloziste`.
 3. Odečty: focení, zápis transakcí, historie v detailu.
 4. Report a CSV.
 
