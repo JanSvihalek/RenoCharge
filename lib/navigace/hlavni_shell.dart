@@ -4,11 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../common/motiv/barvy.dart';
 import '../features/nabijeni/presentation/domovska_obrazovka.dart';
 import '../features/nabijeni/presentation/historie_obrazovka.dart';
+import '../features/auth/application/auth_providery.dart';
+import '../features/auth/domain/uzivatel.dart';
+import '../features/elektromery/presentation/elektromery_obrazovka.dart';
 import '../features/nastaveni/presentation/nastaveni_obrazovka.dart';
 
 /// Vozidla mají vlastní sekci v nastavení, ne vlastní záložku – jinak by
 /// totéž bylo v aplikaci na dvou místech.
-enum Zalozka { domu, historie, nastaveni }
+///
+/// `elektromery` vidí jen role `udrzba`. Záložky se proto neberou
+/// z tohohle výčtu napřímo, ale ze [zalozkyProRoli].
+enum Zalozka { domu, historie, elektromery, nastaveni }
+
+/// Které záložky se dané roli ukážou, v pořadí zleva doprava.
+List<Zalozka> zalozkyProRoli(Role role) => [
+  Zalozka.domu,
+  Zalozka.historie,
+  if (role == Role.udrzba) Zalozka.elektromery,
+  Zalozka.nastaveni,
+];
 
 /// Vybraná záložka. Je v provideru, aby na ni mohly sáhnout i obrazovky
 /// (např. prázdný stav, který posílá uživatele přidat si vozidlo).
@@ -18,6 +32,30 @@ class ZalozkaController extends Notifier<Zalozka> {
 
   void prepni(Zalozka zalozka) => state = zalozka;
 }
+
+/// Obsah záložky. Oddělené od [Zalozka], aby shell nemusel skládat
+/// `IndexedStack` s pevným pořadím – to by se s podmíněnou záložkou
+/// rozešlo a uživatel by po přihlášení viděl cizí obrazovku.
+Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
+  Zalozka.domu => const DomovskaObrazovka(),
+  Zalozka.historie => const HistorieObrazovka(),
+  Zalozka.elektromery => const ElektromeryObrazovka(),
+  Zalozka.nastaveni => const NastaveniObrazovka(),
+};
+
+({IconData ikona, String popisek}) popisZalozky(Zalozka zalozka) =>
+    switch (zalozka) {
+      Zalozka.domu => (ikona: Icons.home_outlined, popisek: 'Domů'),
+      Zalozka.historie => (ikona: Icons.access_time, popisek: 'Historie'),
+      Zalozka.elektromery => (
+        ikona: Icons.electric_meter_outlined,
+        popisek: 'Elektroměry',
+      ),
+      Zalozka.nastaveni => (
+        ikona: Icons.settings_outlined,
+        popisek: 'Nastavení',
+      ),
+    };
 
 final zalozkaProvider = NotifierProvider<ZalozkaController, Zalozka>(
   ZalozkaController.new,
@@ -31,22 +69,25 @@ class HlavniShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
-    final zalozka = ref.watch(zalozkaProvider);
+    final zalozky = zalozkyProRoli(ref.watch(roleProvider));
+    var zalozka = ref.watch(zalozkaProvider);
+
+    // Role dorazí z Firestore až po prvním vykreslení. Kdyby uživatel
+    // mezitím stál na záložce, kterou po načtení vidět nemá, spadne
+    // zpátky na domovskou – jinak by `indexOf` vrátilo -1.
+    if (!zalozky.contains(zalozka)) zalozka = Zalozka.domu;
 
     return Scaffold(
       backgroundColor: b.bg,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
-          index: zalozka.index,
-          children: const [
-            DomovskaObrazovka(),
-            HistorieObrazovka(),
-            NastaveniObrazovka(),
-          ],
+          index: zalozky.indexOf(zalozka),
+          children: [for (final z in zalozky) obrazovkaZalozky(z)],
         ),
       ),
       bottomNavigationBar: _TabBar(
+        zalozky: zalozky,
         aktivni: zalozka,
         onZmena: (z) => ref.read(zalozkaProvider.notifier).prepni(z),
       ),
@@ -55,8 +96,13 @@ class HlavniShell extends ConsumerWidget {
 }
 
 class _TabBar extends StatelessWidget {
-  const _TabBar({required this.aktivni, required this.onZmena});
+  const _TabBar({
+    required this.zalozky,
+    required this.aktivni,
+    required this.onZmena,
+  });
 
+  final List<Zalozka> zalozky;
   final Zalozka aktivni;
   final ValueChanged<Zalozka> onZmena;
 
@@ -76,24 +122,13 @@ class _TabBar extends StatelessWidget {
           padding: const EdgeInsets.only(top: 10),
           child: Row(
             children: [
-              _Tab(
-                ikona: Icons.home_outlined,
-                popisek: 'Domů',
-                aktivni: aktivni == Zalozka.domu,
-                onTap: () => onZmena(Zalozka.domu),
-              ),
-              _Tab(
-                ikona: Icons.access_time,
-                popisek: 'Historie',
-                aktivni: aktivni == Zalozka.historie,
-                onTap: () => onZmena(Zalozka.historie),
-              ),
-              _Tab(
-                ikona: Icons.settings_outlined,
-                popisek: 'Nastavení',
-                aktivni: aktivni == Zalozka.nastaveni,
-                onTap: () => onZmena(Zalozka.nastaveni),
-              ),
+              for (final z in zalozky)
+                _Tab(
+                  ikona: popisZalozky(z).ikona,
+                  popisek: popisZalozky(z).popisek,
+                  aktivni: aktivni == z,
+                  onTap: () => onZmena(z),
+                ),
             ],
           ),
         ),

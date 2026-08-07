@@ -125,6 +125,18 @@ class ZaznamNenalezen extends AppChyba {
   const ZaznamNenalezen() : super('Záznam se nepodařilo najít.');
 }
 
+// ── Elektroměry ──────────────────────────────────────────────────────────────
+
+/// Na pobočce už elektroměr s tímhle číslem je. Není to bezpečnostní
+/// problém, jen nepořádek v seznamu – proto hláška, ne zákaz v pravidlech.
+class CisloElektromeruObsazene extends AppChyba {
+  const CisloElektromeruObsazene(String cislo)
+    : super(
+        'Elektroměr s číslem $cislo už je na této pobočce evidovaný. '
+        'Zkontrolujte prosím číslo na štítku.',
+      );
+}
+
 // ── Fotografie ───────────────────────────────────────────────────────────────
 
 class FoceniZruseno extends AppChyba {

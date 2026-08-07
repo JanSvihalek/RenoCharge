@@ -22,4 +22,5 @@ abstract final class Kolekce {
   static const uzivatele = 'uzivatele';
   static const vozidla = 'vozidla';
   static const nabijeni = 'nabijeni';
+  static const elektromery = 'elektromery';
 }
