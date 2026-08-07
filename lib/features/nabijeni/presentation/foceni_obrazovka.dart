@@ -15,12 +15,21 @@ import '../domain/porizena_fotografie.dart';
 import 'widgety/puvod_fotky.dart';
 
 enum RezimFoceni {
-  zahajeni('Vyfoťte počítadlo'),
-  ukonceni('Vyfoťte počítadlo po nabití');
+  zahajeni('Vyfoťte počítadlo', 'Koncový stav musí být vyšší než počáteční'),
+  ukonceni(
+    'Vyfoťte počítadlo po nabití',
+    'Koncový stav musí být vyšší než počáteční',
+  ),
+  odecet('Vyfoťte stav elektroměru', 'Nový stav musí být vyšší než minulý');
 
-  const RezimFoceni(this.titulek);
+  const RezimFoceni(this.titulek, this.chybaMinima);
 
   final String titulek;
+
+  /// Úvod hlášky, když je zadaná hodnota nižší než dovolené minimum.
+  /// U nabíjení je minimem počáteční stav relace, u elektroměru minulý
+  /// odečet – text se proto liší.
+  final String chybaMinima;
 }
 
 /// Potvrzená fotka i hodnota, se kterou dál pracuje volající obrazovka.
@@ -41,8 +50,9 @@ class FoceniObrazovka extends ConsumerStatefulWidget {
 
   final RezimFoceni rezim;
 
-  /// Počáteční stav počítadla – jen v režimu ukončení, kvůli kontrole,
-  /// že koncová hodnota je vyšší.
+  /// Nejnižší přípustná hodnota. U ukončení nabíjení je to počáteční
+  /// stav relace, u odečtu elektroměru minulý odečet. `null` znamená
+  /// bez kontroly.
   final double? kwhStart;
 
   @override
@@ -143,7 +153,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     if (start != null && hodnota <= start) {
       setState(
         () => _chyba =
-            'Koncový stav musí být vyšší než počáteční '
+            '${widget.rezim.chybaMinima} '
             '(${Format.kwh(start)} kWh). Zkontrolujte prosím hodnotu.',
       );
       return;

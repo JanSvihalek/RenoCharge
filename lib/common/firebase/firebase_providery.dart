@@ -23,4 +23,5 @@ abstract final class Kolekce {
   static const vozidla = 'vozidla';
   static const nabijeni = 'nabijeni';
   static const elektromery = 'elektromery';
+  static const odecty = 'odecty';
 }

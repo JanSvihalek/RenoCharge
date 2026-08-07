@@ -43,7 +43,14 @@ class UkonceniController extends AsyncNotifier<void> {
     try {
       final metadata = await ref
           .read(fotoUlozisteProvider)
-          .nahraj(uid: uid, relaceId: relace.id, typ: TypFoto.end, foto: foto);
+          .nahraj(
+            cil: CilFotky.nabijeni(
+              uid: uid,
+              relaceId: relace.id,
+              typ: TypFoto.end,
+            ),
+            foto: foto,
+          );
       await ref
           .read(nabijeniRepositoryProvider)
           .ukonci(

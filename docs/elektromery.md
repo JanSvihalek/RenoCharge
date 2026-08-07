@@ -309,7 +309,11 @@ poboček a rolí v aplikaci; obojí dělá správce v konzoli.
    a indexem, záložka viditelná jen údržbě, seznam s výběrem pobočky
    a hledáním, formulář a detail. Identifikační fotka zařízení zatím ne –
    přijde s krokem 3, kde se stejně musí zobecnit `FotoUloziste`.
-3. Odečty: focení, zápis transakcí, historie v detailu.
+3. ~~Odečty: focení, zápis transakcí, historie v detailu.~~ **Hotovo.**
+   Zápis jde ze seznamu i z detailu, hodnota se kontroluje proti minulému
+   odečtu a při nižší se aplikace zeptá na výměnu měřidla. Identifikace
+   elektroměru zatím výběrem ze seznamu; skenování QR nebo čísla ze štítku
+   čeká na to, co je na štítcích doopravdy.
 4. Report a CSV.
 
 **Pilot na jedné pobočce.** První měsíc je stejně o stavbě seznamu –

@@ -146,7 +146,7 @@ service cloud.firestore {
     match /elektromery/{elektromerId} {
       function tvarElektromeru() {
         return nova().keys().hasOnly([
-          'pobocka_id', 'cislo', 'nazev', 'aktivni',
+          'pobocka_id', 'cislo', 'nazev', 'aktivni', 'posledni_odecet',
           'vytvoreno_at', 'vytvoril_uid', 'aktualizovano_at'
         ])
         && nova().keys().hasAll(['pobocka_id', 'cislo', 'nazev', 'aktivni'])
@@ -179,6 +179,42 @@ service cloud.firestore {
       // Vyřazení se dělá příznakem aktivni, ne smazáním – historie
       // odečtů musí zůstat čitelná.
       allow delete: if false;
+    }
+
+    // ── Odečty elektroměrů ─────────────────────────────────────────────
+    // Nezměnitelné záznamy. Oprava se dělá novým odečtem, ne přepsáním –
+    // stejně jako u nabíjení stojí důvěryhodnost dat na tom, že se
+    // s hotovým záznamem už nehne.
+    match /odecty/{odecetId} {
+      function tvarOdectu() {
+        return nova().keys().hasOnly([
+          'elektromer_id', 'pobocka_id', 'uid', 'hodnota', 'odecteno_at',
+          'foto', 'predchozi_hodnota', 'vymena_meridla', 'poznamka',
+          'vytvoreno_at'
+        ])
+        && nova().keys().hasAll([
+          'elektromer_id', 'pobocka_id', 'uid', 'hodnota', 'odecteno_at',
+          'foto', 'vymena_meridla'
+        ])
+        && nova().elektromer_id is string
+        && nova().elektromer_id.size() > 0
+        && nova().pobocka_id is string
+        && nova().hodnota is number
+        && nova().hodnota >= 0
+        && nova().odecteno_at is timestamp
+        && nova().vymena_meridla is bool
+        && (nova().poznamka == null
+            || (nova().poznamka is string && nova().poznamka.size() <= 300))
+        && platnaFoto(nova().foto);
+      }
+
+      allow read: if prihlasen();
+
+      allow create: if spravujeElektromery()
+        && tvarOdectu()
+        && nova().uid == ja();
+
+      allow update, delete: if false;
     }
 
     // ── Nabíjecí relace ────────────────────────────────────────────────

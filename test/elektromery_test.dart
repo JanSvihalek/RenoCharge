@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:renocharge/features/auth/domain/uzivatel.dart';
 import 'package:renocharge/features/elektromery/domain/elektromer.dart';
+import 'package:renocharge/features/elektromery/domain/odecet.dart';
+import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
 import 'package:renocharge/features/elektromery/domain/pobocka.dart';
 import 'package:renocharge/navigace/hlavni_shell.dart';
 
@@ -113,6 +115,98 @@ void main() {
       for (final role in Role.values) {
         expect(zalozkyProRoli(role).first, Zalozka.nabijecky);
       }
+    });
+  });
+
+  _testyOdectu();
+}
+
+Odecet _odecet({
+  required DateTime kdy,
+  required double hodnota,
+  bool vymena = false,
+}) => Odecet(
+  id: kdy.toIso8601String(),
+  elektromerId: 'e1',
+  pobockaKod: 'BSL',
+  uid: 'u1',
+  hodnota: hodnota,
+  odectenoAt: kdy,
+  foto: FotoMetadata(path: 'a', sha256: 'x' * 64, porizenoAt: kdy),
+  vymenaMeridla: vymena,
+);
+
+void _testyOdectu() {
+  group('dopočet spotřeby', () {
+    // Spotřeba se neukládá, počítá se z řady. Vstup chodí od nejnovějšího.
+    test('rozdíl proti staršímu odečtu', () {
+      final rada = dopocitejSpotrebu([
+        _odecet(kdy: DateTime(2026, 8, 3), hodnota: 118_512.30),
+        _odecet(kdy: DateTime(2026, 7, 2), hodnota: 118_484.81),
+        _odecet(kdy: DateTime(2026, 6, 1), hodnota: 118_400.00),
+      ]);
+
+      expect(rada[0].spotreba, closeTo(27.49, 0.001));
+      expect(rada[1].spotreba, closeTo(84.81, 0.001));
+      expect(rada[2].spotreba, isNull, reason: 'nejstarší nemá s čím');
+    });
+
+    test('jediný odečet spotřebu nemá', () {
+      final rada = dopocitejSpotrebu([
+        _odecet(kdy: DateTime(2026, 8, 3), hodnota: 100),
+      ]);
+      expect(rada.single.spotreba, isNull);
+    });
+
+    // Po výměně měřidla začíná počítadlo od nuly, takže rozdíl proti
+    // starému stavu je nesmysl a nesmí se ukázat jako záporná spotřeba.
+    test('po výměně měřidla se spotřeba nepočítá', () {
+      final rada = dopocitejSpotrebu([
+        _odecet(kdy: DateTime(2026, 8, 3), hodnota: 12.5, vymena: true),
+        _odecet(kdy: DateTime(2026, 7, 2), hodnota: 118_484.81),
+      ]);
+      expect(rada[0].spotreba, isNull);
+    });
+
+    test('prázdná historie nespadne', () {
+      expect(dopocitejSpotrebu(const []), isEmpty);
+    });
+  });
+
+  group('stav obchůzky', () {
+    Elektromer sOdectem(DateTime? kdy) => Elektromer(
+      id: 'e1',
+      pobockaKod: 'BSL',
+      cislo: '1',
+      nazev: 'Kotelna',
+      posledniOdecet: kdy == null
+          ? null
+          : PosledniOdecet(hodnota: 100, odectenoAt: kdy, odecetId: 'o1'),
+    );
+
+    test('elektroměr bez odečtu je vždy nehotový', () {
+      expect(sOdectem(null).maOdecetZa(DateTime(2026, 8, 4)), isFalse);
+    });
+
+    test('odečet z téhož měsíce znamená hotovo', () {
+      expect(
+        sOdectem(DateTime(2026, 8, 1)).maOdecetZa(DateTime(2026, 8, 31)),
+        isTrue,
+      );
+    });
+
+    test('odečet z minulého měsíce nestačí', () {
+      expect(
+        sOdectem(DateTime(2026, 7, 31)).maOdecetZa(DateTime(2026, 8, 1)),
+        isFalse,
+      );
+    });
+
+    test('stejný měsíc jiného roku nestačí', () {
+      expect(
+        sOdectem(DateTime(2025, 8, 4)).maOdecetZa(DateTime(2026, 8, 4)),
+        isFalse,
+      );
     });
   });
 }

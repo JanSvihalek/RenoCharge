@@ -127,6 +127,19 @@ class ZaznamNenalezen extends AppChyba {
 
 // ── Elektroměry ──────────────────────────────────────────────────────────────
 
+/// Nový odečet je nižší nebo stejný jako minulý. Buď je to překlep,
+/// nebo se měřidlo vyměnilo – druhé se musí přiznat zaškrtnutím.
+class NizsiNezMinulyOdecet extends AppChyba {
+  const NizsiNezMinulyOdecet(this.minulaHodnota)
+    : super(
+        'Nový stav musí být vyšší než minulý odečet. '
+        'Pokud se elektroměr vyměnil a počítadlo začalo od nuly, '
+        'zaškrtněte výměnu měřidla.',
+      );
+
+  final double minulaHodnota;
+}
+
 /// Na pobočce už elektroměr s tímhle číslem je. Není to bezpečnostní
 /// problém, jen nepořádek v seznamu – proto hláška, ne zákaz v pravidlech.
 class CisloElektromeruObsazene extends AppChyba {

@@ -41,6 +41,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "odecty",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "elektromer_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "odecteno_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "odecty",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "pobocka_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "odecteno_at",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

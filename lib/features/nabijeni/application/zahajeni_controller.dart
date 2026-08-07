@@ -100,9 +100,11 @@ class ZahajeniController extends Notifier<ZahajeniStav> {
 
     try {
       final metadata = await uloziste.nahraj(
-        uid: uid,
-        relaceId: relaceId,
-        typ: TypFoto.start,
+        cil: CilFotky.nabijeni(
+          uid: uid,
+          relaceId: relaceId,
+          typ: TypFoto.start,
+        ),
         foto: foto,
       );
       // Fotka je ve Storage dřív než záznam v Firestore, protože cesta

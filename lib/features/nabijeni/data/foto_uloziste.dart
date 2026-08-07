@@ -17,30 +17,53 @@ enum TypFoto {
   final String nazevSouboru;
 }
 
-/// Fotografie počítadla ve Firebase Storage.
+/// Kam fotka ve Storage patří.
 ///
-/// Cesta je vždy `nabijeni/{uid}/{relaceId}/{start|end}.jpg`. Uid v ní
-/// není jen pro pořádek – díky němu si `storage.rules` ověří vlastníka
-/// přímo z cesty a nemusí se doptávat Firestore. Viz komentář v pravidlech.
+/// Uid je v cestě u obou stromů, a ne jen pro pořádek – díky němu si
+/// `storage.rules` ověří vlastníka přímo z cesty a nemusí se doptávat
+/// Firestore. Viz komentář v pravidlech.
+class CilFotky {
+  const CilFotky._({required this.cesta, required this.popisZdroje});
+
+  final String cesta;
+
+  /// Dvojice do metadat souboru, ať se dá u osiřelé fotky poznat,
+  /// ke kterému záznamu měla patřit.
+  final MapEntry<String, String> popisZdroje;
+
+  /// `nabijeni/{uid}/{relaceId}/{start|end}.jpg`
+  factory CilFotky.nabijeni({
+    required String uid,
+    required String relaceId,
+    required TypFoto typ,
+  }) => CilFotky._(
+    cesta: 'nabijeni/$uid/$relaceId/${typ.nazevSouboru}.jpg',
+    popisZdroje: MapEntry('relace_id', relaceId),
+  );
+
+  /// `odecty/{uid}/{odecetId}.jpg`
+  factory CilFotky.odecet({required String uid, required String odecetId}) =>
+      CilFotky._(
+        cesta: 'odecty/$uid/$odecetId.jpg',
+        popisZdroje: MapEntry('odecet_id', odecetId),
+      );
+}
+
+/// Fotografie počítadel ve Firebase Storage – nabíjecích i elektroměrů.
 class FotoUloziste {
   FotoUloziste({required FirebaseStorage storage}) : _storage = storage;
 
   final FirebaseStorage _storage;
 
-  static String cesta(String uid, String relaceId, TypFoto typ) =>
-      'nabijeni/$uid/$relaceId/${typ.nazevSouboru}.jpg';
-
-  /// Nahraje fotku a vrátí metadata pro zápis do dokumentu relace.
+  /// Nahraje fotku a vrátí metadata pro zápis do dokumentu záznamu.
   Future<FotoMetadata> nahraj({
-    required String uid,
-    required String relaceId,
-    required TypFoto typ,
+    required CilFotky cil,
     required PorizenaFotografie foto,
   }) async {
     if (foto.velikostBajtu > Konfigurace.maxVelikostFotoBajtu) {
       throw const NahraniFotoSelhalo();
     }
-    final cilovaCesta = cesta(uid, relaceId, typ);
+    final cilovaCesta = cil.cesta;
     try {
       await _storage
           .ref(cilovaCesta)
@@ -51,7 +74,7 @@ class FotoUloziste {
               customMetadata: {
                 'sha256': foto.sha256,
                 'porizeno_at': foto.porizenoAt.toUtc().toIso8601String(),
-                'relace_id': relaceId,
+                cil.popisZdroje.key: cil.popisZdroje.value,
                 'zdroj': foto.zdroj.klic,
               },
             ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'odecet.dart';
 import 'pobocka.dart';
 
 /// Elektroměr v areálu – dokument `elektromery/{id}`.
@@ -12,6 +13,7 @@ class Elektromer {
     required this.cislo,
     required this.nazev,
     this.aktivni = true,
+    this.posledniOdecet,
     this.vytvorenoAt,
     this.vytvorilUid,
   });
@@ -32,10 +34,18 @@ class Elektromer {
   /// zůstane čitelná. Proto příznak, ne smazání.
   final bool aktivni;
 
+  /// Poslední zapsaný odečet. Denormalizace kvůli seznamu – viz
+  /// [PosledniOdecet]. `null`, dokud se elektroměr poprvé neodečetl.
+  final PosledniOdecet? posledniOdecet;
+
   final DateTime? vytvorenoAt;
   final String? vytvorilUid;
 
   Pobocka? get pobocka => Pobocka.zKodu(pobockaKod);
+
+  /// Má elektroměr odečet za daný měsíc? Podle toho se v seznamu dělí
+  /// na „zbývá" a „hotovo".
+  bool maOdecetZa(DateTime mesic) => posledniOdecet?.jeZMesice(mesic) ?? false;
 
   /// Text, ve kterém se v seznamu hledá – číslo i umístění dohromady.
   /// Při osmdesáti kusech je hledání podmínka použitelnosti.
@@ -58,6 +68,7 @@ class Elektromer {
       cislo: data['cislo'] as String? ?? '',
       nazev: data['nazev'] as String? ?? '',
       aktivni: data['aktivni'] as bool? ?? true,
+      posledniOdecet: PosledniOdecet.zMapy(data['posledni_odecet']),
       vytvorenoAt: (data['vytvoreno_at'] as Timestamp?)?.toDate(),
       vytvorilUid: data['vytvoril_uid'] as String?,
     );
@@ -88,6 +99,12 @@ class Elektromer {
     'cislo': cislo,
     'nazev': nazev,
     'aktivni': aktivni,
+    'aktualizovano_at': FieldValue.serverTimestamp(),
+  };
+
+  /// Zapisuje se v téže transakci jako odečet.
+  static Map<String, dynamic> mapaProPosledniOdecet(PosledniOdecet odecet) => {
+    'posledni_odecet': odecet.naMapu(),
     'aktualizovano_at': FieldValue.serverTimestamp(),
   };
 

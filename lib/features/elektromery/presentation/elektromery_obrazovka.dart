@@ -5,11 +5,13 @@ import '../../../common/motiv/barvy.dart';
 import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
+import '../../../common/formatovani.dart';
 import '../application/elektromery_providery.dart';
 import '../domain/elektromer.dart';
 import '../domain/pobocka.dart';
 import 'elektromer_obrazovka.dart';
 import 'formular_elektromeru.dart';
+import 'tok_odectu.dart';
 
 /// Seznam elektroměrů zvolené pobočky.
 ///
@@ -80,13 +82,20 @@ class _Seznam extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Obchůzka se dopočítává, žádná entita nevzniká: hotový je ten,
+    // jehož poslední odečet spadá do tohohle měsíce.
+    final ted = DateTime.now();
     final nalezene = [
       for (final e in vsechny)
         if (e.odpovidaHledani(dotaz)) e,
     ];
-    final vProvozu = [
+    final zbyva = [
       for (final e in nalezene)
-        if (e.aktivni) e,
+        if (e.aktivni && !e.maOdecetZa(ted)) e,
+    ];
+    final hotovo = [
+      for (final e in nalezene)
+        if (e.aktivni && e.maOdecetZa(ted)) e,
     ];
     final vyrazene = [
       for (final e in nalezene)
@@ -110,7 +119,14 @@ class _Seznam extends StatelessWidget {
 
     return Column(
       children: [
-        for (final e in vProvozu) _Radek(elektromer: e),
+        if (zbyva.isNotEmpty) ...[
+          const NadpisSekce('Zbývá tento měsíc'),
+          for (final e in zbyva) _Radek(elektromer: e),
+        ],
+        if (hotovo.isNotEmpty) ...[
+          const NadpisSekce('Hotovo'),
+          for (final e in hotovo) _Radek(elektromer: e),
+        ],
         if (vyrazene.isNotEmpty) ...[
           const NadpisSekce('Vyřazené'),
           for (final e in vyrazene) _Radek(elektromer: e),
@@ -120,14 +136,16 @@ class _Seznam extends StatelessWidget {
   }
 }
 
-class _Radek extends StatelessWidget {
+class _Radek extends ConsumerWidget {
   const _Radek({required this.elektromer});
 
   final Elektromer elektromer;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
+    final posledni = elektromer.posledniOdecet;
+    final hotovo = elektromer.maOdecetZa(DateTime.now());
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -163,11 +181,36 @@ class _Radek extends StatelessWidget {
                       'č. ${elektromer.cislo}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      posledni == null
+                          ? 'zatím bez odečtu'
+                          : '${hotovo ? '' : 'naposledy '}'
+                                '${Format.kwh(posledni.hodnota)} kWh · '
+                                '${Format.datum(posledni.odectenoAt)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: hotovo ? b.penize : b.textDim,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(Icons.chevron_right, size: 20, color: b.textFaint),
+              // Zápis rovnou ze seznamu: na jeden elektroměr tak vyjdou
+              // dvě klepnutí místo čtyř. Při jedenatřiceti kusech na
+              // pobočce se to nasčítá.
+              if (elektromer.aktivni)
+                IkonoveTlacitko(
+                  ikona: hotovo
+                      ? Icons.check_circle_outline
+                      : Icons.photo_camera_outlined,
+                  barvaIkony: hotovo ? b.penize : b.accentText,
+                  pozadi: hotovo ? b.surface2 : b.accent,
+                  popisPristupnosti: 'Zapsat odečet: ${elektromer.nazev}',
+                  onTap: () => otevriZapisOdectu(context, ref, elektromer),
+                )
+              else
+                Icon(Icons.chevron_right, size: 20, color: b.textFaint),
             ],
           ),
         ),

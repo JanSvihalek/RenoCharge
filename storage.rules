@@ -17,6 +17,28 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // Fotky odečtů elektroměrů. Roli tu ověřit nejde – muselo by se to
+    // doptat Firestore a to je právě to cross-service volání, kvůli
+    // kterému nešly nahrát fotky u nabíjení. Zápis proto smí kdokoli
+    // přihlášený do své složky; že smí založit odečet, hlídá až Firestore.
+    // Osiřelá fotka bez záznamu je pár set kB, ne bezpečnostní problém.
+    match /odecty/{uid}/{soubor} {
+
+      function moje() {
+        return request.auth != null && uid == request.auth.uid;
+      }
+
+      // Odečty vidí celá firma, ne jen ten, kdo je pořídil.
+      allow read: if request.auth != null;
+
+      allow create: if moje()
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+
+      allow update: if false;
+      allow delete: if false;
+    }
+
     match /nabijeni/{uid}/{relaceId}/{soubor} {
 
       function moje() {
