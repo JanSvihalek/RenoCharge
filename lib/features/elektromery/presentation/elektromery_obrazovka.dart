@@ -3,14 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../common/motiv/barvy.dart';
 import '../../../common/motiv/rozmery.dart';
+import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../../common/formatovani.dart';
 import '../application/elektromery_providery.dart';
 import '../domain/elektromer.dart';
 import '../domain/pobocka.dart';
+import '../../reporty/application/report_controller.dart';
+import '../domain/identifikace.dart';
 import 'elektromer_obrazovka.dart';
 import 'formular_elektromeru.dart';
+import 'skener_obrazovka.dart';
 import 'tok_odectu.dart';
 
 /// Seznam elektroměrů zvolené pobočky.
@@ -37,14 +41,38 @@ class ElektromeryObrazovka extends ConsumerWidget {
       children: [
         VelkyNadpis(
           'Elektroměry',
-          akce: IkonoveTlacitko(
-            ikona: Icons.add,
-            popisPristupnosti: 'Přidat elektroměr',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => FormularElektromeru(pobocka: pobocka),
+          akce: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IkonoveTlacitko(
+                ikona: Icons.qr_code_2,
+                popisPristupnosti: 'Vytisknout QR štítky pobočky',
+                onTap: () async {
+                  final pocet = await ref
+                      .read(reportControllerProvider.notifier)
+                      .vytvorStitky(
+                        popisPobocky: pobocka.kod,
+                        elektromery: elektromery.value ?? const [],
+                      );
+                  if (context.mounted && pocet == 0) {
+                    ukazVarovani(
+                      context,
+                      'Na této pobočce zatím není co oštítkovat.',
+                    );
+                  }
+                },
               ),
-            ),
+              const SizedBox(width: 8),
+              IkonoveTlacitko(
+                ikona: Icons.add,
+                popisPristupnosti: 'Přidat elektroměr',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => FormularElektromeru(pobocka: pobocka),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         _VyberPobocky(
@@ -56,6 +84,14 @@ class ElektromeryObrazovka extends ConsumerWidget {
         _PoleHledani(
           hodnota: dotaz,
           onZmena: (text) => ref.read(hledaniProvider.notifier).nastav(text),
+        ),
+        const SizedBox(height: 14),
+        // Zkratka přes celou šířku: sken QR je hlavní cesta k zápisu,
+        // seznam pod ním zůstává pro případ, že kód chybí.
+        PrimarniTlacitko(
+          popisek: 'Načíst elektroměr',
+          ikona: Icons.qr_code_scanner,
+          onTap: () => _skenuj(context, ref, elektromery.value ?? const []),
         ),
         const SizedBox(height: 16),
         switch (elektromery) {
@@ -72,6 +108,37 @@ class ElektromeryObrazovka extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// Otevře skener a po nalezení pustí rovnou zápis odečtu – na jeden
+/// elektroměr tak vyjde sken a potvrzení, nic mezi tím.
+Future<void> _skenuj(
+  BuildContext context,
+  WidgetRef ref,
+  List<Elektromer> evidence,
+) async {
+  if (evidence.isEmpty) {
+    ukazVarovani(
+      context,
+      'Na této pobočce zatím není žádný elektroměr, který by šlo načíst.',
+    );
+    return;
+  }
+
+  final nalez = await Navigator.of(context).push<NalezenyElektromer>(
+    MaterialPageRoute(
+      fullscreenDialog: true,
+      builder: (_) => SkenerObrazovka(elektromery: evidence),
+    ),
+  );
+  if (nalez == null || !context.mounted) return;
+
+  // U čísla ze štítku je identifikace odhad, ne jistota – ať člověk
+  // vidí, co se mu načetlo, než začne fotit počítadlo.
+  if (nalez.zpusob == ZpusobNalezeni.cisloZeStitku) {
+    ukazInfo(context, 'Načteno: ${nalez.elektromer.nazev}');
+  }
+  await otevriZapisOdectu(context, ref, nalez.elektromer);
 }
 
 class _Seznam extends StatelessWidget {

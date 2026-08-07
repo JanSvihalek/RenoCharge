@@ -279,6 +279,39 @@ souboru se musí stát parametr.
 Struktura: `lib/features/elektromery/` vedle `nabijeni/`, uvnitř
 `domain` / `data` / `application` / `presentation` jako všude jinde.
 
+## Identifikace elektroměru
+
+Elektroměry v terénu QR kód nemají, firma si ho nalepí. Aplikace proto
+umí obojí:
+
+**QR kód** je hlavní cesta. Obsah je `renocharge:elektromer:{id}` –
+předpona schválně, jinak by aplikace reagovala na každý QR, který jí
+přijde pod ruku, od parkovacího lístku po obal. Sken pustí rovnou zápis
+odečtu, takže na jeden elektroměr vyjde sken a potvrzení.
+
+**Číslo ze štítku přes OCR** je záchrana, když kód chybí, je odlepený
+nebo poškrábaný. Tištěný štítek čte ML Kit mnohem líp než sedmisegmentový
+displej. Z rozpoznaného textu se vytáhnou číselné shluky a porovnají
+s evidencí; skupiny číslic se skládají dohromady **jen když je dělí
+mezera** – „18 342 771" a „18342771" je totéž, ale z „rok 2024 typ 3f"
+nesmí vzniknout „20243". Krátké shluky se zahazují, „2024" je rok výroby.
+
+U čísla ze štítku je identifikace **odhad**, ne jistota, takže se
+uživateli ukáže, co se načetlo. U QR se neptáme.
+
+**Výběr ze seznamu** zůstává vždycky. Skenování je zkratka, ne jediná
+cesta.
+
+### Štítky si vyrobí aplikace
+
+Osmdesát QR kódů ručně by byla práce na den. V seznamu elektroměrů je
+proto tlačítko, které vysází **arch štítků pro celou pobočku** do PDF
+k vytištění na samolepky. Sázecí stroj na PDF už v projektu byl kvůli
+reportům, takže to nestálo skoro nic.
+
+Pod kódem je i číslo a umístění – aby šel štítek nalepit na správný
+elektroměr a aby se dal přečíst okem, když se kód poškrábe.
+
 ## Report
 
 Za pobočku a měsíc: tabulka *elektroměr · minulý stav · nový stav ·

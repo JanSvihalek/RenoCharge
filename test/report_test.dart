@@ -351,6 +351,28 @@ void _testyReportuElektromeru() {
     });
   });
 
+  group('arch QR štítků', () {
+    test('vznikne platný dokument', () async {
+      final bajty = await (await ReportPdf.nacti()).sestavStitky([
+        _e1,
+        const Elektromer(
+          id: 'e2',
+          pobockaKod: 'BSL',
+          cislo: '18 342 802',
+          nazev: 'Kotelna – hlavní',
+        ),
+      ]);
+
+      expect(bajty.length, greaterThan(1000));
+      expect(String.fromCharCodes(bajty.sublist(0, 5)), '%PDF-');
+    });
+
+    test('prázdný seznam nespadne', () async {
+      final bajty = await (await ReportPdf.nacti()).sestavStitky(const []);
+      expect(bajty.length, greaterThan(500));
+    });
+  });
+
   test('název souboru reportu elektroměru nese předponu i číslo', () {
     final obdobi = Obdobi(
       od: DateTime(2026, 8),

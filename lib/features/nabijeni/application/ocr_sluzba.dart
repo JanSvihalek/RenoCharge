@@ -32,6 +32,22 @@ class OcrSluzba {
     }
   }
 
+  /// Surový text ze snímku. Používá se u štítku elektroměru, kde se
+  /// nehledá stav počítadla, ale výrobní číslo – vytáhnout ho z textu
+  /// umí až volající.
+  Future<String> prectiText(String cestaKSouboru) async {
+    try {
+      final vysledek = await _rozpoznavac.processImage(
+        InputImage.fromFilePath(cestaKSouboru),
+      );
+      return vysledek.text;
+    } catch (_) {
+      // Selhání OCR není chyba, kterou by měl uživatel řešit – prostě
+      // se nic nenajde a nabídne se výběr ze seznamu.
+      return '';
+    }
+  }
+
   Future<void> zavri() => _rozpoznavac.close();
 
   /// Vybere z rozpoznaných řádků číslo, které nejspíš je stavem

@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../common/formatovani.dart';
+import '../../elektromery/domain/elektromer.dart';
+import '../../elektromery/domain/identifikace.dart';
 import '../domain/report.dart';
 
 /// Sestavení PDF reportu.
@@ -216,6 +218,80 @@ class ReportPdf {
       ],
     ),
   ];
+
+  /// Arch QR štítků k vytištění na samolepky.
+  ///
+  /// Elektroměry v terénu QR kód nemají, takže si ho firma musí nalepit.
+  /// Vyrobit osmdesát kódů ručně by bylo na den práce – aplikace umí
+  /// vysázet arch sama, protože sázecí stroj na PDF už v projektu je.
+  ///
+  /// Pod kódem je i číslo a umístění, aby šlo štítek nalepit na správný
+  /// elektroměr a aby se dal přečíst i okem, když se kód poškrábe.
+  Future<Uint8List> sestavStitky(List<Elektromer> elektromery) async {
+    final dokument = pw.Document(title: 'QR štítky elektroměrů');
+
+    dokument.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        theme: pw.ThemeData.withFont(base: zakladni, bold: tucne),
+        build: (context) => [
+          pw.Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [for (final e in elektromery) _stitek(e)],
+          ),
+        ],
+      ),
+    );
+
+    return dokument.save();
+  }
+
+  pw.Widget _stitek(Elektromer e) => pw.Container(
+    width: 165,
+    height: 118,
+    padding: const pw.EdgeInsets.all(8),
+    decoration: pw.BoxDecoration(
+      border: pw.Border.all(color: _linka, width: 0.5),
+    ),
+    child: pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.BarcodeWidget(
+          barcode: pw.Barcode.qrCode(),
+          data: obsahQr(e),
+          width: 74,
+          height: 74,
+          drawText: false,
+        ),
+        pw.SizedBox(width: 8),
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                e.cislo,
+                style: pw.TextStyle(font: tucne, fontSize: 9),
+                maxLines: 2,
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                e.nazev,
+                style: const pw.TextStyle(fontSize: 8, color: _seda),
+                maxLines: 3,
+              ),
+              pw.Spacer(),
+              pw.Text(
+                e.pobocka?.kod ?? e.pobockaKod,
+                style: const pw.TextStyle(fontSize: 7, color: _seda),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 
   pw.Widget _hlavicka(PodkladReportu podklad) {
     final osoba = [

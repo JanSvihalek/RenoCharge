@@ -235,6 +235,34 @@ class ReportController extends Notifier<StavReportu> {
     return fotky;
   }
 
+  /// Arch QR štítků pro elektroměry pobočky, k vytištění na samolepky.
+  ///
+  /// Vrací počet vysázených štítků, nebo `null` při chybě.
+  Future<int?> vytvorStitky({
+    required String popisPobocky,
+    required List<Elektromer> elektromery,
+  }) async {
+    if (probiha) return null;
+    if (elektromery.isEmpty) return 0;
+
+    try {
+      state = const ReportSestavuje();
+      final bajty = await (await ReportPdf.nacti()).sestavStitky(elektromery);
+
+      await Printing.sharePdf(
+        bytes: bajty,
+        filename: 'qr-stitky-${bezDiakritiky(popisPobocky).toLowerCase()}.pdf',
+        subject: 'QR štítky elektroměrů · $popisPobocky',
+      );
+
+      state = const ReportPripraven();
+      return elektromery.length;
+    } catch (chyba) {
+      state = ReportChyba(AppChyba.zFirebase(chyba));
+      return null;
+    }
+  }
+
   /// `report-nabijeni-jan-svihalek-2026-07-01-2026-07-31.pdf`
   static String nazevSouboru(
     String jmeno,
