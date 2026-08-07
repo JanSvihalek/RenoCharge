@@ -83,7 +83,7 @@ void main() {
     test('zaměstnanec elektroměry nevidí', () {
       final zalozky = zalozkyProRoli(Role.zamestnanec);
       expect(zalozky, isNot(contains(Zalozka.elektromery)));
-      expect(zalozky, [Zalozka.domu, Zalozka.historie, Zalozka.nastaveni]);
+      expect(zalozky, [Zalozka.nabijecky, Zalozka.historie, Zalozka.nastaveni]);
     });
 
     test('údržba elektroměry vidí', () {
@@ -101,9 +101,9 @@ void main() {
       }
     });
 
-    test('domovská záložka je vždy první', () {
+    test('nabíječky jsou vždy první', () {
       for (final role in Role.values) {
-        expect(zalozkyProRoli(role).first, Zalozka.domu);
+        expect(zalozkyProRoli(role).first, Zalozka.nabijecky);
       }
     });
   });

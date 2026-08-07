@@ -14,11 +14,11 @@ import '../features/nastaveni/presentation/nastaveni_obrazovka.dart';
 ///
 /// `elektromery` vidí jen role `udrzba`. Záložky se proto neberou
 /// z tohohle výčtu napřímo, ale ze [zalozkyProRoli].
-enum Zalozka { domu, historie, elektromery, nastaveni }
+enum Zalozka { nabijecky, historie, elektromery, nastaveni }
 
 /// Které záložky se dané roli ukážou, v pořadí zleva doprava.
 List<Zalozka> zalozkyProRoli(Role role) => [
-  Zalozka.domu,
+  Zalozka.nabijecky,
   Zalozka.historie,
   if (role == Role.udrzba) Zalozka.elektromery,
   Zalozka.nastaveni,
@@ -28,7 +28,7 @@ List<Zalozka> zalozkyProRoli(Role role) => [
 /// (např. prázdný stav, který posílá uživatele přidat si vozidlo).
 class ZalozkaController extends Notifier<Zalozka> {
   @override
-  Zalozka build() => Zalozka.domu;
+  Zalozka build() => Zalozka.nabijecky;
 
   void prepni(Zalozka zalozka) => state = zalozka;
 }
@@ -37,25 +37,23 @@ class ZalozkaController extends Notifier<Zalozka> {
 /// `IndexedStack` s pevným pořadím – to by se s podmíněnou záložkou
 /// rozešlo a uživatel by po přihlášení viděl cizí obrazovku.
 Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
-  Zalozka.domu => const DomovskaObrazovka(),
+  Zalozka.nabijecky => const DomovskaObrazovka(),
   Zalozka.historie => const HistorieObrazovka(),
   Zalozka.elektromery => const ElektromeryObrazovka(),
   Zalozka.nastaveni => const NastaveniObrazovka(),
 };
 
-({IconData ikona, String popisek}) popisZalozky(Zalozka zalozka) =>
-    switch (zalozka) {
-      Zalozka.domu => (ikona: Icons.home_outlined, popisek: 'Domů'),
-      Zalozka.historie => (ikona: Icons.access_time, popisek: 'Historie'),
-      Zalozka.elektromery => (
-        ikona: Icons.electric_meter_outlined,
-        popisek: 'Elektroměry',
-      ),
-      Zalozka.nastaveni => (
-        ikona: Icons.settings_outlined,
-        popisek: 'Nastavení',
-      ),
-    };
+({IconData ikona, String popisek}) popisZalozky(
+  Zalozka zalozka,
+) => switch (zalozka) {
+  Zalozka.nabijecky => (ikona: Icons.ev_station_outlined, popisek: 'Nabíječky'),
+  Zalozka.historie => (ikona: Icons.access_time, popisek: 'Historie'),
+  Zalozka.elektromery => (
+    ikona: Icons.electric_meter_outlined,
+    popisek: 'Elektroměry',
+  ),
+  Zalozka.nastaveni => (ikona: Icons.settings_outlined, popisek: 'Nastavení'),
+};
 
 final zalozkaProvider = NotifierProvider<ZalozkaController, Zalozka>(
   ZalozkaController.new,
@@ -74,8 +72,8 @@ class HlavniShell extends ConsumerWidget {
 
     // Role dorazí z Firestore až po prvním vykreslení. Kdyby uživatel
     // mezitím stál na záložce, kterou po načtení vidět nemá, spadne
-    // zpátky na domovskou – jinak by `indexOf` vrátilo -1.
-    if (!zalozky.contains(zalozka)) zalozka = Zalozka.domu;
+    // zpátky na nabíječky – jinak by `indexOf` vrátilo -1.
+    if (!zalozky.contains(zalozka)) zalozka = Zalozka.nabijecky;
 
     return Scaffold(
       backgroundColor: b.bg,
