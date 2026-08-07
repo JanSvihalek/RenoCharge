@@ -328,6 +328,12 @@ Nabíječky je tak zobrazují a na jedno místo by se z 27,49 kWh stalo
 27,5 – tedy víc, než se opravdu nabilo. U podkladu k fakturaci to vadí,
 i když se přepočet dělá vždycky z přesné hodnoty, ne ze zobrazené.
 
+## Připravované
+
+[Odečty elektroměrů](docs/elektromery.md) – evidence stavů elektroměrů
+v areálech, oddělená část aplikace pro roli `udrzba`. Zadání je hotové,
+kód zatím ne.
+
 ## Mimo rozsah
 
 Skutečné sazby, fakturace, export ISDOC, schvalování. Stav `schvaleno`
