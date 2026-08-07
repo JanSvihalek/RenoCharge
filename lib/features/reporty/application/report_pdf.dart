@@ -63,6 +63,160 @@ class ReportPdf {
     return dokument.save();
   }
 
+  /// Report jednoho elektroměru: vývoj stavu, spotřeba mezi odečty
+  /// a změna proti předchozímu období.
+  Future<Uint8List> sestavElektromer(PodkladElektromeru podklad) async {
+    final e = podklad.elektromer;
+    final dokument = pw.Document(
+      title: 'Report elektroměru ${e.cislo}',
+      author: 'RenoCharge',
+    );
+
+    dokument.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(36, 36, 36, 28),
+        theme: pw.ThemeData.withFont(base: zakladni, bold: tucne),
+        footer: _pata,
+        build: (context) => [
+          _hlavickaElektromeru(podklad),
+          pw.SizedBox(height: 18),
+          if (podklad.polozky.isEmpty)
+            _prazdnoElektromer()
+          else ...[
+            _tabulkaOdectu(podklad),
+            pw.SizedBox(height: 10),
+            _soucetOdectu(podklad),
+            if (podklad.maNejakeFotky) ..._fotkyOdectu(podklad),
+          ],
+        ],
+      ),
+    );
+
+    return dokument.save();
+  }
+
+  pw.Widget _hlavickaElektromeru(PodkladElektromeru podklad) {
+    final e = podklad.elektromer;
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Report elektroměru',
+          style: pw.TextStyle(font: tucne, fontSize: 20),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(e.nazev, style: const pw.TextStyle(fontSize: 11)),
+        pw.Text(
+          'č. ${e.cislo} · ${e.pobocka?.popisek ?? e.pobockaKod}',
+          style: const pw.TextStyle(fontSize: 11),
+        ),
+        pw.Text(
+          'Období ${Format.datum(podklad.obdobi.od)} – '
+          '${Format.datum(podklad.obdobi.doVcetne)}',
+          style: const pw.TextStyle(fontSize: 11),
+        ),
+        pw.SizedBox(height: 2),
+        pw.Text(
+          'Vytvořeno ${Format.datum(podklad.vytvorenoAt)} '
+          'v ${Format.cas(podklad.vytvorenoAt)}',
+          style: const pw.TextStyle(fontSize: 9, color: _seda),
+        ),
+        pw.SizedBox(height: 10),
+        pw.Divider(color: _linka, height: 1),
+      ],
+    );
+  }
+
+  pw.Widget _prazdnoElektromer() => pw.Padding(
+    padding: const pw.EdgeInsets.symmetric(vertical: 24),
+    child: pw.Text(
+      'Ve zvoleném období není u tohoto elektroměru žádný odečet.',
+      style: const pw.TextStyle(fontSize: 11, color: _seda),
+    ),
+  );
+
+  pw.Widget _tabulkaOdectu(PodkladElektromeru podklad) {
+    return pw.TableHelper.fromTextArray(
+      headers: const ['Datum', 'Stav', 'Spotřeba', 'Změna', 'Poznámka'],
+      data: [
+        for (final p in podklad.polozky)
+          [
+            Format.datum(p.odecet.odectenoAt),
+            Format.kwh(p.odecet.hodnota),
+            p.spotreba == null ? '–' : Format.kwh(p.spotreba!),
+            _zmena(p.zmenaProcent),
+            p.odecet.vymenaMeridla ? 'nové měřidlo' : (p.odecet.poznamka ?? ''),
+          ],
+      ],
+      border: const pw.TableBorder(
+        horizontalInside: pw.BorderSide(color: _linka, width: 0.5),
+        bottom: pw.BorderSide(color: _linka, width: 0.5),
+      ),
+      headerDecoration: const pw.BoxDecoration(color: _zahlavi),
+      headerStyle: pw.TextStyle(font: tucne, fontSize: 9),
+      cellStyle: const pw.TextStyle(fontSize: 9),
+      cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+      headerAlignment: pw.Alignment.centerLeft,
+      cellAlignments: const {
+        1: pw.Alignment.centerRight,
+        2: pw.Alignment.centerRight,
+        3: pw.Alignment.centerRight,
+      },
+      columnWidths: const {
+        0: pw.FlexColumnWidth(1.5),
+        1: pw.FlexColumnWidth(1.7),
+        2: pw.FlexColumnWidth(1.5),
+        3: pw.FlexColumnWidth(1.2),
+        4: pw.FlexColumnWidth(2.4),
+      },
+    );
+  }
+
+  /// Skokový nárůst je ten signál, kvůli kterému se odečty čtou, proto
+  /// se změna ukazuje se znaménkem a ne jen jako poměr.
+  static String _zmena(double? procenta) {
+    if (procenta == null) return '–';
+    final znamenko = procenta > 0 ? '+' : '';
+    return '$znamenko${procenta.toStringAsFixed(0).replaceAll('-', '−')} %';
+  }
+
+  pw.Widget _soucetOdectu(PodkladElektromeru podklad) => pw.Row(
+    mainAxisAlignment: pw.MainAxisAlignment.end,
+    children: [
+      pw.Text('Celkem za období: ', style: const pw.TextStyle(fontSize: 11)),
+      pw.Text(
+        '${Format.kwh(podklad.celkovaSpotreba)} kWh',
+        style: pw.TextStyle(font: tucne, fontSize: 13),
+      ),
+    ],
+  );
+
+  List<pw.Widget> _fotkyOdectu(PodkladElektromeru podklad) => [
+    pw.SizedBox(height: 24),
+    pw.Text(
+      'Fotografie počítadla',
+      style: pw.TextStyle(font: tucne, fontSize: 13),
+    ),
+    pw.SizedBox(height: 10),
+    pw.Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (final p in podklad.polozky)
+          if (p.foto != null)
+            pw.SizedBox(
+              width: 160,
+              child: _snimek(
+                '${Format.datum(p.odecet.odectenoAt)} · '
+                '${Format.kwh(p.odecet.hodnota)} kWh',
+                p.foto,
+              ),
+            ),
+      ],
+    ),
+  ];
+
   pw.Widget _hlavicka(PodkladReportu podklad) {
     final osoba = [
       podklad.jmeno,

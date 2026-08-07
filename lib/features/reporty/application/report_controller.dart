@@ -7,6 +7,9 @@ import 'package:printing/printing.dart';
 import '../../../common/chyby.dart';
 import '../../../common/formatovani.dart';
 import '../../auth/application/auth_providery.dart';
+import '../../elektromery/application/odecty_controller.dart';
+import '../../elektromery/domain/elektromer.dart';
+import '../../elektromery/domain/odecet.dart';
 import '../../nabijeni/application/nabijeni_providery.dart';
 import '../../nabijeni/domain/relace.dart';
 import '../../vozidla/application/vozidla_providery.dart';
@@ -162,14 +165,88 @@ class ReportController extends Notifier<StavReportu> {
     return polozky;
   }
 
+  /// Report jednoho elektroměru. Sdílí stav i průběh s reportem
+  /// nabíjení – pro uživatele je to tatáž operace, jen nad jinými daty.
+  Future<int?> vytvorProElektromer({
+    required Elektromer elektromer,
+    required Obdobi obdobi,
+    required bool sFotkami,
+  }) async {
+    if (probiha) return null;
+
+    try {
+      state = const ReportNacitaZaznamy();
+      final odecty = await ref
+          .read(odectyRepositoryProvider)
+          .nactiZaObdobi(
+            elektromerId: elektromer.id,
+            od: obdobi.od,
+            doKonce: obdobi.doExkluzivne,
+          );
+
+      final fotky = sFotkami
+          ? await _stahniFotky(odecty)
+          : const <String, Uint8List>{};
+
+      state = const ReportSestavuje();
+      final bajty = await (await ReportPdf.nacti()).sestavElektromer(
+        PodkladElektromeru(
+          elektromer: elektromer,
+          obdobi: obdobi,
+          polozky: slozPolozkyOdectu(odecty, fotky: fotky),
+          vytvorenoAt: DateTime.now(),
+        ),
+      );
+
+      await Printing.sharePdf(
+        bytes: bajty,
+        filename: nazevSouboru(
+          'elektromer ${elektromer.cislo}',
+          obdobi,
+          predpona: 'report-elektromer',
+        ),
+        subject:
+            'Elektroměr ${elektromer.cislo} · '
+            '${Format.datum(obdobi.od)} – ${Format.datum(obdobi.doVcetne)}',
+      );
+
+      state = const ReportPripraven();
+      return odecty.length;
+    } catch (chyba) {
+      state = ReportChyba(AppChyba.zFirebase(chyba));
+      return null;
+    }
+  }
+
+  Future<Map<String, Uint8List>> _stahniFotky(List<Odecet> odecty) async {
+    final uloziste = ref.read(fotoUlozisteProvider);
+    final fotky = <String, Uint8List>{};
+    var hotovo = 0;
+    state = ReportStahujeFotky(hotovo: hotovo, celkem: odecty.length);
+
+    for (final o in odecty) {
+      if (o.foto.path.isNotEmpty) {
+        final bajty = await uloziste.stahni(o.foto.path);
+        if (bajty != null) fotky[o.id] = await compute(zmensiProPdf, bajty);
+      }
+      hotovo++;
+      state = ReportStahujeFotky(hotovo: hotovo, celkem: odecty.length);
+    }
+    return fotky;
+  }
+
   /// `report-nabijeni-jan-svihalek-2026-07-01-2026-07-31.pdf`
-  static String nazevSouboru(String jmeno, Obdobi obdobi) {
+  static String nazevSouboru(
+    String jmeno,
+    Obdobi obdobi, {
+    String predpona = 'report-nabijeni',
+  }) {
     final kdo = bezDiakritiky(
       jmeno,
     ).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
     String den(DateTime d) =>
         '${d.year}-${_dvojciferne(d.month)}-${_dvojciferne(d.day)}';
-    return 'report-nabijeni-$kdo-${den(obdobi.od)}-'
+    return '$predpona-$kdo-${den(obdobi.od)}-'
         '${den(obdobi.doVcetne)}.pdf';
   }
 

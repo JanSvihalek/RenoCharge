@@ -7,13 +7,21 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
+import '../../elektromery/domain/elektromer.dart';
 import '../application/report_controller.dart';
 import '../domain/report.dart';
 
 /// Výběr období a vytvoření PDF reportu. Hotové PDF se předá
 /// systémovému sdílení, odkud se dá poslat mailem.
+///
+/// Jedna obrazovka pro obojí: bez [elektromer] vyrobí report vlastních
+/// nabíjení, s ním report toho elektroměru. Pro uživatele je to tatáž
+/// operace, jen nad jinými daty – dvě skoro stejné obrazovky by se
+/// časem rozešly.
 class ExportObrazovka extends ConsumerStatefulWidget {
-  const ExportObrazovka({super.key});
+  const ExportObrazovka({super.key, this.elektromer});
+
+  final Elektromer? elektromer;
 
   @override
   ConsumerState<ExportObrazovka> createState() => _ExportObrazovkaState();
@@ -40,16 +48,23 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
 
   Future<void> _vytvor() async {
     final rizeni = ref.read(reportControllerProvider.notifier);
-    final pocet = await rizeni.vytvorASdilej(
-      obdobi: _obdobi,
-      sFotkami: _sFotkami,
-    );
+    final elektromer = widget.elektromer;
+
+    final pocet = elektromer == null
+        ? await rizeni.vytvorASdilej(obdobi: _obdobi, sFotkami: _sFotkami)
+        : await rizeni.vytvorProElektromer(
+            elektromer: elektromer,
+            obdobi: _obdobi,
+            sFotkami: _sFotkami,
+          );
     if (!mounted || pocet == null) return;
 
     if (pocet == 0) {
       ukazVarovani(
         context,
-        'Ve zvoleném období není žádné dokončené nabíjení.',
+        elektromer == null
+            ? 'Ve zvoleném období není žádné dokončené nabíjení.'
+            : 'Ve zvoleném období není u tohoto elektroměru žádný odečet.',
       );
     }
   }
@@ -67,7 +82,9 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
         child: Column(
           children: [
             HlavickaToku(
-              titulek: 'Export do PDF',
+              titulek: widget.elektromer == null
+                  ? 'Export nabíjení'
+                  : 'Export odečtů',
               onZpet: probiha ? null : () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -79,6 +96,21 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                   24,
                 ),
                 children: [
+                  if (widget.elektromer case final e?) ...[
+                    const NadpisSekce('Elektroměr'),
+                    Karta(
+                      child: Column(
+                        children: [
+                          RadekDat(popisek: 'Umístění', hodnota: e.nazev),
+                          RadekDat(
+                            popisek: 'Číslo',
+                            hodnota: e.cislo,
+                            posledni: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const NadpisSekce('Období'),
                   _RychlaVolba(
                     obdobi: _obdobi,
@@ -113,9 +145,9 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
                       subtitle: Text(
-                        'Fotky se do PDF vloží zmenšené, aby se report dal '
-                        'poslat mailem. Bez nich je soubor o poznání menší '
-                        'a vytvoří se hned.',
+                        'Fotky počítadla se do PDF vloží zmenšené, aby se '
+                        'report dal poslat mailem. Bez nich je soubor '
+                        'o poznání menší a vytvoří se hned.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),

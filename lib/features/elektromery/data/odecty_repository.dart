@@ -38,6 +38,29 @@ class OdectyRepository {
       .map((snimek) => snimek.docs.map(Odecet.zDokumentu).toList())
       .handleError((Object chyba) => throw AppChyba.zFirebase(chyba));
 
+  /// Odečty elektroměru za období, od nejstaršího – podklad pro report.
+  ///
+  /// Jednorázový dotaz, ne stream: report je snímek k okamžiku vytvoření.
+  /// Řadí se sestupně kvůli indexu, který kolekce má kvůli historii,
+  /// a pořadí se obrací až tady.
+  Future<List<Odecet>> nactiZaObdobi({
+    required String elektromerId,
+    required DateTime od,
+    required DateTime doKonce,
+  }) async {
+    try {
+      final snimek = await _odecty
+          .where('elektromer_id', isEqualTo: elektromerId)
+          .where('odecteno_at', isGreaterThanOrEqualTo: Timestamp.fromDate(od))
+          .where('odecteno_at', isLessThan: Timestamp.fromDate(doKonce))
+          .orderBy('odecteno_at', descending: true)
+          .get();
+      return [for (final doc in snimek.docs.reversed) Odecet.zDokumentu(doc)];
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
+
   /// Zapíše odečet a zároveň ho promítne do elektroměru.
   ///
   /// Transakcí, ne dávkou: dva údržbáři u jednoho elektroměru současně

@@ -314,7 +314,10 @@ poboček a rolí v aplikaci; obojí dělá správce v konzoli.
    odečtu a při nižší se aplikace zeptá na výměnu měřidla. Identifikace
    elektroměru zatím výběrem ze seznamu; skenování QR nebo čísla ze štítku
    čeká na to, co je na štítcích doopravdy.
-4. Report a CSV.
+4. **Rozpracováno.** Report jednoho elektroměru do PDF je hotový –
+   z detailu, s výběrem období a volitelnými fotkami, tabulka nese stav,
+   spotřebu a změnu proti minulému období v procentech. Zbývá report za
+   celou pobočku a CSV.
 
 **Pilot na jedné pobočce.** První měsíc je stejně o stavbě seznamu –
 vyladit to tam, kam se dá dojít pro zpětnou vazbu, a teprve pak pustit

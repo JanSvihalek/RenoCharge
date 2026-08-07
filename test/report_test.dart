@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:renocharge/features/elektromery/domain/elektromer.dart';
+import 'package:renocharge/features/elektromery/domain/odecet.dart';
 import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
 import 'package:renocharge/features/nabijeni/domain/relace.dart';
 import 'package:renocharge/features/reporty/application/report_controller.dart';
@@ -198,6 +200,8 @@ void main() {
       expect(bajty.length, greaterThan(1000));
     });
   });
+
+  _testyReportuElektromeru();
 }
 
 /// Nejmenší platný JPEG (1×1 px), aby se dal vložit do PDF bez
@@ -218,3 +222,147 @@ Uint8List _jednobarevnyJpeg() => Uint8List.fromList([
   0x00, 0x00, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00,
   0x37, 0xFF, 0xD9,
 ]);
+
+Odecet _odecetR({
+  required DateTime kdy,
+  required double hodnota,
+  bool vymena = false,
+}) => Odecet(
+  id: kdy.toIso8601String(),
+  elektromerId: 'e1',
+  pobockaKod: 'BSL',
+  uid: 'u1',
+  hodnota: hodnota,
+  odectenoAt: kdy,
+  foto: _foto('odecty/u1/${kdy.millisecondsSinceEpoch}.jpg'),
+  vymenaMeridla: vymena,
+);
+
+Elektromer get _e1 => const Elektromer(
+  id: 'e1',
+  pobockaKod: 'BSL',
+  cislo: '18 342 771',
+  nazev: 'Hala B – rozvaděč R3',
+);
+
+void _testyReportuElektromeru() {
+  group('položky odečtů pro report', () {
+    // Vstup je od nejstaršího – v reportu se čte odshora dolů v čase.
+    test('spotřeba je rozdíl proti předchozímu odečtu', () {
+      final p = slozPolozkyOdectu([
+        _odecetR(kdy: DateTime(2026, 6, 1), hodnota: 100),
+        _odecetR(kdy: DateTime(2026, 7, 1), hodnota: 130),
+        _odecetR(kdy: DateTime(2026, 8, 1), hodnota: 175),
+      ]);
+
+      expect(p[0].spotreba, isNull, reason: 'nejstarší nemá s čím');
+      expect(p[1].spotreba, closeTo(30, 0.001));
+      expect(p[2].spotreba, closeTo(45, 0.001));
+    });
+
+    // Skokový nárůst je ten signál, kvůli kterému se odečty čtou.
+    test('změna v procentech se počítá proti minulé spotřebě', () {
+      final p = slozPolozkyOdectu([
+        _odecetR(kdy: DateTime(2026, 6, 1), hodnota: 100),
+        _odecetR(kdy: DateTime(2026, 7, 1), hodnota: 130),
+        _odecetR(kdy: DateTime(2026, 8, 1), hodnota: 175),
+      ]);
+
+      expect(p[1].zmenaProcent, isNull, reason: 'není s čím porovnat');
+      expect(p[2].zmenaProcent, closeTo(50, 0.001), reason: '30 → 45 kWh');
+    });
+
+    test('pokles se pozná záporným číslem', () {
+      final p = slozPolozkyOdectu([
+        _odecetR(kdy: DateTime(2026, 6, 1), hodnota: 100),
+        _odecetR(kdy: DateTime(2026, 7, 1), hodnota: 140),
+        _odecetR(kdy: DateTime(2026, 8, 1), hodnota: 160),
+      ]);
+      expect(p[2].zmenaProcent, closeTo(-50, 0.001), reason: '40 → 20 kWh');
+    });
+
+    test('po výměně měřidla se spotřeba ani změna nepočítá', () {
+      final p = slozPolozkyOdectu([
+        _odecetR(kdy: DateTime(2026, 6, 1), hodnota: 118000),
+        _odecetR(kdy: DateTime(2026, 7, 1), hodnota: 12.5, vymena: true),
+        _odecetR(kdy: DateTime(2026, 8, 1), hodnota: 40),
+      ]);
+
+      expect(p[1].spotreba, isNull);
+      expect(p[1].zmenaProcent, isNull);
+      expect(p[2].spotreba, closeTo(27.5, 0.001), reason: 'nové měřidlo běží');
+      expect(p[2].zmenaProcent, isNull, reason: 'řada se výměnou přerušila');
+    });
+
+    test('součet za období sečte jen dopočítané spotřeby', () {
+      final podklad = PodkladElektromeru(
+        elektromer: _e1,
+        obdobi: Obdobi(od: DateTime(2026, 6), doVcetne: DateTime(2026, 8, 31)),
+        polozky: slozPolozkyOdectu([
+          _odecetR(kdy: DateTime(2026, 6, 1), hodnota: 100),
+          _odecetR(kdy: DateTime(2026, 7, 1), hodnota: 130),
+          _odecetR(kdy: DateTime(2026, 8, 1), hodnota: 175),
+        ]),
+        vytvorenoAt: DateTime(2026, 9, 1),
+      );
+      expect(podklad.celkovaSpotreba, closeTo(75, 0.001));
+    });
+
+    test('prázdné období nespadne', () {
+      expect(slozPolozkyOdectu(const []), isEmpty);
+    });
+  });
+
+  group('sestavení PDF elektroměru', () {
+    test('vznikne platný dokument', () async {
+      final bajty = await (await ReportPdf.nacti()).sestavElektromer(
+        PodkladElektromeru(
+          elektromer: _e1,
+          obdobi: Obdobi(
+            od: DateTime(2026, 6),
+            doVcetne: DateTime(2026, 8, 31),
+          ),
+          polozky: slozPolozkyOdectu([
+            _odecetR(kdy: DateTime(2026, 6, 1), hodnota: 118400),
+            _odecetR(kdy: DateTime(2026, 7, 1), hodnota: 118484.81),
+            _odecetR(kdy: DateTime(2026, 8, 1), hodnota: 118512.30),
+          ]),
+          vytvorenoAt: DateTime(2026, 9, 1, 8),
+        ),
+      );
+
+      expect(bajty.length, greaterThan(1000));
+      expect(String.fromCharCodes(bajty.sublist(0, 5)), '%PDF-');
+    });
+
+    test('elektroměr bez odečtů dá dokument s vysvětlením', () async {
+      final bajty = await (await ReportPdf.nacti()).sestavElektromer(
+        PodkladElektromeru(
+          elektromer: _e1,
+          obdobi: Obdobi(
+            od: DateTime(2026, 8),
+            doVcetne: DateTime(2026, 8, 31),
+          ),
+          polozky: const [],
+          vytvorenoAt: DateTime(2026, 9, 1),
+        ),
+      );
+      expect(bajty.length, greaterThan(1000));
+    });
+  });
+
+  test('název souboru reportu elektroměru nese předponu i číslo', () {
+    final obdobi = Obdobi(
+      od: DateTime(2026, 8),
+      doVcetne: DateTime(2026, 8, 31),
+    );
+    expect(
+      ReportController.nazevSouboru(
+        'elektromer 18 342 771',
+        obdobi,
+        predpona: 'report-elektromer',
+      ),
+      'report-elektromer-elektromer-18-342-771-2026-08-01-2026-08-31.pdf',
+    );
+  });
+}
