@@ -36,10 +36,10 @@ final profilProvider = StreamProvider<Uzivatel?>((ref) {
 });
 
 /// Role přihlášeného uživatele. Dokud se profil načítá, platí ta
-/// slabší – nová část aplikace se tím nemihne uživateli, který na ni
+/// nejslabší – nová část aplikace se tím nemihne uživateli, který na ni
 /// nemá právo.
 final roleProvider = Provider<Role>((ref) {
-  return ref.watch(profilProvider).value?.role ?? Role.zamestnanec;
+  return ref.watch(profilProvider).value?.role ?? Role.uzivatel;
 });
 
 /// Řízení průběhu přihlášení a odhlášení.

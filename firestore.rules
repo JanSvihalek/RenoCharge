@@ -30,10 +30,18 @@ service cloud.firestore {
     // který si uživatel sám změnit nemůže – viz roleNezmenena() níže.
     // Každé volání stojí jedno čtení navíc; při desítkách zápisů měsíčně
     // je to zanedbatelné.
-    function jeUdrzba() {
+    //
+    // Ptáme se na schopnost, ne na konkrétní roli: správce smí všechno,
+    // co smí údržba, a další role se pak přidá na jednom místě.
+    function mojeRole() {
       return prihlasen()
-        && get(/databases/$(database)/documents/uzivatele/$(ja()))
-             .data.get('role', '') == 'udrzba';
+        ? get(/databases/$(database)/documents/uzivatele/$(ja()))
+            .data.get('role', 'user')
+        : '';
+    }
+
+    function spravujeElektromery() {
+      return mojeRole() in ['udrzba', 'admin'];
     }
 
     // Metadata fotky: cesta ve Storage, otisk, čas pořízení z EXIF a to,
@@ -155,14 +163,14 @@ service cloud.firestore {
 
       allow read: if prihlasen();
 
-      allow create: if jeUdrzba()
+      allow create: if spravujeElektromery()
         && tvarElektromeru()
         && nova().vytvoril_uid == ja();
 
       // Pobočka se po založení nemění – přestěhovaný elektroměr je jiný
       // elektroměr a míchaly by se mu odečty přes dva areály. Autor
       // záznamu se taky nepřepisuje.
-      allow update: if jeUdrzba()
+      allow update: if spravujeElektromery()
         && tvarElektromeru()
         && nova().pobocka_id == stara().pobocka_id
         && nova().vytvoreno_at == stara().vytvoreno_at

@@ -33,10 +33,18 @@ které si uživatel **nesmí sám změnit** – pravidla vynutí, že při úpra
 profilu zůstává stejné. Nastavuje ho správce v konzoli, stejně jako dnes
 zakládá účty. Chybějící `role` znamená běžného zaměstnance.
 
-| Role | Smí |
+| `role` | Smí |
 |---|---|
-| *(chybí)* | jen nabíjení jako dosud; záložka Elektroměry se nezobrazí |
-| `udrzba` | zakládat a upravovat elektroměry, zapisovat odečty |
+| `user` nebo chybí | jen nabíjení jako dosud; záložka Elektroměry se nezobrazí |
+| `udrzba` | navíc zakládat a upravovat elektroměry, zapisovat odečty |
+| `admin` | vše, co údržba, plus co přibude později |
+
+Kód se neptá na konkrétní roli, ale na **schopnost** (`spravujeElektromery`,
+`videVse`). Přidání další role je pak úprava na jednom místě, ne hledání
+všech porovnání v aplikaci. Stejně to má i `firestore.rules`.
+
+Neznámá hodnota v poli `role` znamená běžného uživatele – role, o které
+aplikace neví, nikdy nedá oprávnění navíc.
 
 Custom claims by byly čistší, ale nastavují se jen přes Admin SDK –
 tedy servisní účet a skript, což zadavatel odmítl hned na začátku.

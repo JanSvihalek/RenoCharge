@@ -168,7 +168,7 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
               // smí, když mu něco chybí. Měnit ji tady nejde schválně.
               RadekDat(
                 popisek: 'Oprávnění',
-                hodnota: (profil?.role ?? Role.zamestnanec).popisek,
+                hodnota: (profil?.role ?? Role.uzivatel).popisek,
                 posledni: true,
               ),
             ],

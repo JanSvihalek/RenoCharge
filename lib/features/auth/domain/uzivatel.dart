@@ -1,22 +1,36 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Co uživatel v aplikaci smí. Chybějící role v profilu znamená běžného
-/// zaměstnance – ten vidí jen nabíjení vlastních vozidel.
+/// Co uživatel v aplikaci smí.
 ///
 /// Roli **nastavuje výhradně správce v konzoli**; uživatel si ji sám
 /// změnit nemůže, hlídají to `firestore.rules`.
+///
+/// Chybějící i neznámá hodnota znamená [uzivatel] – nová role v datech
+/// tak nikdy nedá práva, o kterých aplikace neví.
 enum Role {
-  zamestnanec(null, 'Zaměstnanec'),
-  udrzba('udrzba', 'Údržba');
+  uzivatel('user', 'Uživatel'),
+  udrzba('udrzba', 'Údržba'),
+  admin('admin', 'Správce');
 
   const Role(this.klic, this.popisek);
 
-  /// Hodnota v Firestore. `null` znamená, že pole v profilu chybí.
-  final String? klic;
+  /// Hodnota v poli `role` ve Firestore.
+  final String klic;
   final String popisek;
 
-  static Role zKlice(String? klic) =>
-      klic == udrzba.klic ? udrzba : zamestnanec;
+  /// Kdo smí do části s elektroměry. Ptát se takhle, a ne na konkrétní
+  /// roli, je schválně – přidání další role pak znamená úpravu na jednom
+  /// místě, ne hledání všech porovnání v aplikaci.
+  bool get spravujeElektromery => this == udrzba || this == admin;
+
+  /// Správce vidí všechno, co vidí ostatní role.
+  bool get videVse => this == admin;
+
+  static Role zKlice(String? klic) => switch (klic) {
+    'udrzba' => udrzba,
+    'admin' => admin,
+    _ => uzivatel,
+  };
 }
 
 /// Profil uživatele – dokument `uzivatele/{uid}`.
@@ -30,7 +44,7 @@ class Uzivatel {
     this.onboardingAt,
     this.aktivniNabijeniId,
     this.cenaZaKwh,
-    this.role = Role.zamestnanec,
+    this.role = Role.uzivatel,
   });
 
   final String uid;
@@ -62,7 +76,7 @@ class Uzivatel {
 
   final Role role;
 
-  bool get jeUdrzba => role == Role.udrzba;
+  bool get spravujeElektromery => role.spravujeElektromery;
 
   bool get maOtevrenouRelaci => aktivniNabijeniId != null;
 

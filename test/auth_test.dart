@@ -104,29 +104,45 @@ void main() {
 
   group('role', () {
     // Roli nastavuje výhradně správce v konzoli. Chybějící pole proto
-    // nesmí znamenat nic jiného než běžného zaměstnance.
+    // nesmí znamenat nic jiného než běžného uživatele.
     Uzivatel sRoli(Role role) =>
         Uzivatel(uid: 'u1', jmeno: 'Jan', email: 'jan@firma.cz', role: role);
 
-    test('bez role je uživatel zaměstnanec', () {
-      expect(_uzivatel('Jan').role, Role.zamestnanec);
-      expect(_uzivatel('Jan').jeUdrzba, isFalse);
+    test('bez role je běžný uživatel', () {
+      expect(_uzivatel('Jan').role, Role.uzivatel);
+      expect(_uzivatel('Jan').spravujeElektromery, isFalse);
     });
 
     test('klíč z Firestore se přeloží na roli', () {
       expect(Role.zKlice('udrzba'), Role.udrzba);
-      expect(Role.zKlice(null), Role.zamestnanec);
+      expect(Role.zKlice('admin'), Role.admin);
+      expect(Role.zKlice('user'), Role.uzivatel);
+      expect(Role.zKlice(null), Role.uzivatel);
     });
 
+    // Kdyby se do dat dostala role, o které aplikace neví, nesmí z toho
+    // vzniknout oprávnění navíc.
     test('neznámý klíč nedává oprávnění navíc', () {
-      expect(Role.zKlice('spravce'), Role.zamestnanec);
-      expect(Role.zKlice(''), Role.zamestnanec);
-      expect(Role.zKlice('UDRZBA'), Role.zamestnanec);
+      expect(Role.zKlice('spravce'), Role.uzivatel);
+      expect(Role.zKlice(''), Role.uzivatel);
+      expect(Role.zKlice('UDRZBA'), Role.uzivatel);
+      expect(Role.zKlice('Admin'), Role.uzivatel);
     });
 
-    test('údržba se pozná', () {
-      expect(sRoli(Role.udrzba).jeUdrzba, isTrue);
-      expect(sRoli(Role.zamestnanec).jeUdrzba, isFalse);
+    test('elektroměry spravuje údržba i správce', () {
+      expect(sRoli(Role.udrzba).spravujeElektromery, isTrue);
+      expect(sRoli(Role.admin).spravujeElektromery, isTrue);
+      expect(sRoli(Role.uzivatel).spravujeElektromery, isFalse);
+    });
+
+    test('všechno vidí jen správce', () {
+      expect(Role.admin.videVse, isTrue);
+      expect(Role.udrzba.videVse, isFalse);
+      expect(Role.uzivatel.videVse, isFalse);
+    });
+
+    test('klíče rolí jsou jedinečné', () {
+      expect(Role.values.map((r) => r.klic).toSet(), hasLength(3));
     });
   });
 }

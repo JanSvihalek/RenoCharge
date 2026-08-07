@@ -80,14 +80,22 @@ void main() {
   });
 
   group('záložky podle role', () {
-    test('zaměstnanec elektroměry nevidí', () {
-      final zalozky = zalozkyProRoli(Role.zamestnanec);
+    test('běžný uživatel elektroměry nevidí', () {
+      final zalozky = zalozkyProRoli(Role.uzivatel);
       expect(zalozky, isNot(contains(Zalozka.elektromery)));
       expect(zalozky, [Zalozka.nabijecky, Zalozka.historie, Zalozka.nastaveni]);
     });
 
-    test('údržba elektroměry vidí', () {
+    test('údržba i správce elektroměry vidí', () {
       expect(zalozkyProRoli(Role.udrzba), contains(Zalozka.elektromery));
+      expect(zalozkyProRoli(Role.admin), contains(Zalozka.elektromery));
+    });
+
+    test('správce vidí aspoň tolik co ostatní role', () {
+      final spravce = zalozkyProRoli(Role.admin).toSet();
+      for (final role in Role.values) {
+        expect(spravce, containsAll(zalozkyProRoli(role)));
+      }
     });
 
     // IndexedStack se plní podle pořadí v tomhle seznamu, takže se

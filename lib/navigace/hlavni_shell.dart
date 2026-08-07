@@ -20,7 +20,7 @@ enum Zalozka { nabijecky, historie, elektromery, nastaveni }
 List<Zalozka> zalozkyProRoli(Role role) => [
   Zalozka.nabijecky,
   Zalozka.historie,
-  if (role == Role.udrzba) Zalozka.elektromery,
+  if (role.spravujeElektromery) Zalozka.elektromery,
   Zalozka.nastaveni,
 ];
 
