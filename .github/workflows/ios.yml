@@ -169,6 +169,25 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/Runner.xcarchive"
 
+      # Číslo buildu se do Info.plist dostává oklikou: flutter build zapíše
+      # FLUTTER_BUILD_NUMBER do Generated.xcconfig a Info.plist na něj jen
+      # odkazuje. Když ta cesta selže, archiv nese číslo z pubspec.yaml,
+      # App Store Connect ho odmítne jako duplicitní – ale až asynchronně,
+      # takže by workflow zůstal zelený. Proto kontrola tady.
+      - name: Kontrola čísla buildu
+        env:
+          OCEKAVANE: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          PLIST="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app/Info.plist"
+          VERZE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
+          BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")"
+          echo "Verze $VERZE, build $BUILD"
+          if [ "$BUILD" != "$OCEKAVANE" ]; then
+            echo "::error::Archiv nese build $BUILD, čekal se $OCEKAVANE."
+            exit 1
+          fi
+
       - name: Export IPA
         run: |
           set -euo pipefail
@@ -198,6 +217,7 @@ jobs:
           printf '%s' "$PRIVATE_KEY" > ~/private_keys/AuthKey_${KEY_ID}.p8
 
           IPA="$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -1)"
+
           echo "Nahrávám $IPA"
           xcrun altool --upload-app -f "$IPA" -t ios \
             --apiKey "$KEY_ID" --apiIssuer "$ISSUER_ID"
