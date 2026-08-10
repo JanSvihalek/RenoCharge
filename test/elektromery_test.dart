@@ -116,6 +116,17 @@ void main() {
         expect(zalozkyProRoli(role).first, Zalozka.nabijecky);
       }
     });
+
+    // Obě evidence vlevo vedle sebe, ohlédnutí za nimi až za nimi.
+    // Údržbář má na obchůzce elektroměry na druhé pozici, ne na třetí.
+    test('elektroměry stojí hned za nabíječkami, historie až za nimi', () {
+      expect(zalozkyProRoli(Role.udrzba), [
+        Zalozka.nabijecky,
+        Zalozka.elektromery,
+        Zalozka.historie,
+        Zalozka.nastaveni,
+      ]);
+    });
   });
 
   _testyOdectu();

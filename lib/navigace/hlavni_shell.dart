@@ -14,13 +14,17 @@ import '../features/nastaveni/presentation/nastaveni_obrazovka.dart';
 ///
 /// `elektromery` vidí jen role `udrzba`. Záložky se proto neberou
 /// z tohohle výčtu napřímo, ale ze [zalozkyProRoli].
-enum Zalozka { nabijecky, historie, elektromery, nastaveni }
+enum Zalozka { nabijecky, elektromery, historie, nastaveni }
 
 /// Které záložky se dané roli ukážou, v pořadí zleva doprava.
+///
+/// Vlevo je práce, vpravo ohlédnutí za ní: nabíječky a elektroměry jsou
+/// to, kvůli čemu uživatel aplikaci otevírá, historie se prohlíží až
+/// potom. Údržbáři tím obě evidence leží vedle sebe.
 List<Zalozka> zalozkyProRoli(Role role) => [
   Zalozka.nabijecky,
-  Zalozka.historie,
   if (role.spravujeElektromery) Zalozka.elektromery,
+  Zalozka.historie,
   Zalozka.nastaveni,
 ];
 
@@ -38,8 +42,8 @@ class ZalozkaController extends Notifier<Zalozka> {
 /// rozešlo a uživatel by po přihlášení viděl cizí obrazovku.
 Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
   Zalozka.nabijecky => const DomovskaObrazovka(),
-  Zalozka.historie => const HistorieObrazovka(),
   Zalozka.elektromery => const ElektromeryObrazovka(),
+  Zalozka.historie => const HistorieObrazovka(),
   Zalozka.nastaveni => const NastaveniObrazovka(),
 };
 
@@ -47,11 +51,11 @@ Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
   Zalozka zalozka,
 ) => switch (zalozka) {
   Zalozka.nabijecky => (ikona: Icons.ev_station_outlined, popisek: 'Nabíječky'),
-  Zalozka.historie => (ikona: Icons.access_time, popisek: 'Historie'),
   Zalozka.elektromery => (
     ikona: Icons.electric_meter_outlined,
     popisek: 'Elektroměry',
   ),
+  Zalozka.historie => (ikona: Icons.access_time, popisek: 'Historie'),
   Zalozka.nastaveni => (ikona: Icons.settings_outlined, popisek: 'Nastavení'),
 };
 
