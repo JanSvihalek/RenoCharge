@@ -14,15 +14,15 @@ import '../features/nastaveni/presentation/nastaveni_obrazovka.dart';
 ///
 /// `elektromery` vidí jen role `udrzba`. Záložky se proto neberou
 /// z tohohle výčtu napřímo, ale ze [zalozkyProRoli].
-enum Zalozka { nabijecky, elektromery, historie, nastaveni }
+enum Zalozka { nabijeni, elektromery, historie, nastaveni }
 
 /// Které záložky se dané roli ukážou, v pořadí zleva doprava.
 ///
-/// Vlevo je práce, vpravo ohlédnutí za ní: nabíječky a elektroměry jsou
+/// Vlevo je práce, vpravo ohlédnutí za ní: nabíjení a elektroměry jsou
 /// to, kvůli čemu uživatel aplikaci otevírá, historie se prohlíží až
 /// potom. Údržbáři tím obě evidence leží vedle sebe.
 List<Zalozka> zalozkyProRoli(Role role) => [
-  Zalozka.nabijecky,
+  Zalozka.nabijeni,
   if (role.spravujeElektromery) Zalozka.elektromery,
   Zalozka.historie,
   Zalozka.nastaveni,
@@ -32,7 +32,7 @@ List<Zalozka> zalozkyProRoli(Role role) => [
 /// (např. prázdný stav, který posílá uživatele přidat si vozidlo).
 class ZalozkaController extends Notifier<Zalozka> {
   @override
-  Zalozka build() => Zalozka.nabijecky;
+  Zalozka build() => Zalozka.nabijeni;
 
   void prepni(Zalozka zalozka) => state = zalozka;
 }
@@ -41,7 +41,7 @@ class ZalozkaController extends Notifier<Zalozka> {
 /// `IndexedStack` s pevným pořadím – to by se s podmíněnou záložkou
 /// rozešlo a uživatel by po přihlášení viděl cizí obrazovku.
 Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
-  Zalozka.nabijecky => const DomovskaObrazovka(),
+  Zalozka.nabijeni => const DomovskaObrazovka(),
   Zalozka.elektromery => const ElektromeryObrazovka(),
   Zalozka.historie => const HistorieObrazovka(),
   Zalozka.nastaveni => const NastaveniObrazovka(),
@@ -50,7 +50,7 @@ Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
 ({IconData ikona, String popisek}) popisZalozky(
   Zalozka zalozka,
 ) => switch (zalozka) {
-  Zalozka.nabijecky => (ikona: Icons.ev_station_outlined, popisek: 'Nabíječky'),
+  Zalozka.nabijeni => (ikona: Icons.ev_station_outlined, popisek: 'Nabíjení'),
   Zalozka.elektromery => (
     ikona: Icons.electric_meter_outlined,
     popisek: 'Elektroměry',
@@ -76,8 +76,8 @@ class HlavniShell extends ConsumerWidget {
 
     // Role dorazí z Firestore až po prvním vykreslení. Kdyby uživatel
     // mezitím stál na záložce, kterou po načtení vidět nemá, spadne
-    // zpátky na nabíječky – jinak by `indexOf` vrátilo -1.
-    if (!zalozky.contains(zalozka)) zalozka = Zalozka.nabijecky;
+    // zpátky na nabíjení – jinak by `indexOf` vrátilo -1.
+    if (!zalozky.contains(zalozka)) zalozka = Zalozka.nabijeni;
 
     return Scaffold(
       backgroundColor: b.bg,
