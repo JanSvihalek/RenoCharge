@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../common/formatovani.dart';
+import '../../../common/motiv/barvy.dart';
 import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/pole.dart';
@@ -87,10 +88,33 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
     }
   }
 
+  /// Odhlášení se ptá na potvrzení. Není destruktivní – žádná data
+  /// nezmizí – ale zpátky se člověk dostane jen s heslem, které u sebe
+  /// v terénu mít nemusí. Jedno klepnutí navíc je levnější než to.
+  Future<void> _odhlas() async {
+    final profil = ref.read(profilProvider).value;
+    final potvrzeno = await showDialog<bool>(
+      context: context,
+      builder: (context) => _DialogOdhlaseni(
+        email: profil?.email ?? '',
+        maOtevrenouRelaci: profil?.maOtevrenouRelaci ?? false,
+      ),
+    );
+    if (potvrzeno != true || !mounted) return;
+
+    await ref.read(prihlaseniControllerProvider.notifier).odhlas();
+    // Při úspěchu je tahle obrazovka pryč – kořen aplikace přepne na
+    // přihlášení, jakmile se změní stav v Firebase Auth.
+    if (!mounted) return;
+    final chyba = ref.read(prihlaseniControllerProvider).error;
+    if (chyba != null) ukazChybu(context, chyba);
+  }
+
   @override
   Widget build(BuildContext context) {
     final profil = ref.watch(profilProvider).value;
     final ukladani = ref.watch(cenaControllerProvider).isLoading;
+    final odhlasovani = ref.watch(prihlaseniControllerProvider).isLoading;
     _predvyplnZProfilu(profil);
 
     return ListView(
@@ -177,6 +201,67 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
         const SizedBox(height: 10),
         _Vysvetlivka(
           'Jméno a osobní číslo mění správce. Pokud něco nesedí, ozvěte se mu.',
+        ),
+        const SizedBox(height: 16),
+        // Tlumené, ne červené: odhlášení nic nesmaže. Červená by tu
+        // znamenala nebezpečí, které tady není.
+        PrimarniTlacitko(
+          popisek: 'Odhlásit se',
+          ikona: Icons.logout,
+          vyska: Rozmery.dotykMin,
+          barvaPozadi: context.barvy.surface2,
+          barvaTextu: context.barvy.text,
+          nacita: odhlasovani,
+          onTap: odhlasovani ? null : _odhlas,
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogOdhlaseni extends StatelessWidget {
+  const _DialogOdhlaseni({
+    required this.email,
+    required this.maOtevrenouRelaci,
+  });
+
+  final String email;
+
+  /// Rozjeté nabíjení se odhlášením neztratí – jen na něj po přihlášení
+  /// musí uživatel nezapomenout navázat, jinak zůstane viset otevřené.
+  final bool maOtevrenouRelaci;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = context.barvy;
+    return AlertDialog(
+      backgroundColor: b.surface,
+      title: Text(
+        'Odhlásit se?',
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      content: Text(
+        [
+          if (email.isNotEmpty)
+            'Aplikace se odhlásí z účtu $email. Zpátky se dostanete '
+                'jen s heslem.'
+          else
+            'Zpátky do aplikace se dostanete jen s heslem.',
+          if (maOtevrenouRelaci)
+            'Máte rozjeté nabíjení. Nezmizí – po přihlášení ho najdete '
+                'otevřené a budete ho moct dokončit.',
+        ].join('\n\n'),
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text('Zrušit', style: TextStyle(color: b.textDim)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text('Odhlásit', style: TextStyle(color: b.danger)),
         ),
       ],
     );
