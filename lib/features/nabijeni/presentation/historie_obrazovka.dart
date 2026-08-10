@@ -5,6 +5,7 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../../navigace/toky.dart';
+import '../../reporty/application/exporty_providery.dart';
 import '../application/nabijeni_providery.dart';
 import '../domain/mesicni_skupina.dart';
 import 'widgety/relace_widgety.dart';
@@ -16,6 +17,9 @@ class HistorieObrazovka extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historie = ref.watch(historieProvider);
+    // Chybu tady neřešíme: bez seznamu exportů je historie pořád
+    // historie, jen bez poznámek o vytvořených reportech.
+    final exporty = ref.watch(historieExportuProvider).value ?? const [];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -49,8 +53,12 @@ class HistorieObrazovka extends ConsumerWidget {
           // je „kolik jsem nabil minulý měsíc", ne „kolik celkem".
           AsyncData(:final value) => Column(
             children: [
-              for (final skupina in seskupPoMesicich(value)) ...[
+              for (final skupina in seskupPoMesicich(
+                value,
+                exporty: exporty,
+              )) ...[
                 PredelMesice(skupina),
+                for (final e in skupina.exporty) RadekExportu(e),
                 for (final r in skupina.relace)
                   RadekRelace(
                     relace: r,

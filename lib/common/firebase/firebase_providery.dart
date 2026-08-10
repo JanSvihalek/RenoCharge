@@ -24,4 +24,5 @@ abstract final class Kolekce {
   static const nabijeni = 'nabijeni';
   static const elektromery = 'elektromery';
   static const odecty = 'odecty';
+  static const exporty = 'exporty';
 }

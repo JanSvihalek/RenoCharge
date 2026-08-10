@@ -8,8 +8,10 @@ import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../elektromery/domain/elektromer.dart';
+import '../application/exporty_providery.dart';
 import '../application/report_controller.dart';
 import '../domain/report.dart';
+import '../domain/zaznam_exportu.dart';
 
 /// Výběr období a vytvoření PDF reportu. Hotové PDF se předá
 /// systémovému sdílení, odkud se dá poslat mailem.
@@ -74,6 +76,11 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
     final b = context.barvy;
     final stav = ref.watch(reportControllerProvider);
     final probiha = ref.read(reportControllerProvider.notifier).probiha;
+    // Poslední report se hlídá jen u nabíjení – u elektroměru se exportuje
+    // podle potřeby, ne měsíc po měsíci bez děr.
+    final posledni = widget.elektromer == null
+        ? ref.watch(posledniExportProvider)
+        : null;
 
     return Scaffold(
       backgroundColor: b.bg,
@@ -126,6 +133,15 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                       posledni: true,
                     ),
                   ),
+                  if (posledni != null) ...[
+                    const SizedBox(height: 10),
+                    _PosledniExport(
+                      export: posledni,
+                      onNavazat: probiha
+                          ? null
+                          : (nove) => setState(() => _obdobi = nove),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   OdkazoveTlacitko(
                     popisek: 'Zvolit jiné období',
@@ -164,6 +180,56 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
             _Pata(probiha: probiha, onVytvorit: _vytvor),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Kdy vznikl poslední report a nabídka navázat na něj.
+///
+/// Tohle je odpověď na otázku „od kdy mám dělat příští report". Bez ní
+/// si ji člověk musí pamatovat sám, nebo dohledávat v odeslané poště.
+class _PosledniExport extends StatelessWidget {
+  const _PosledniExport({required this.export, required this.onNavazat});
+
+  final ZaznamExportu export;
+
+  /// `null`, když právě běží vytváření reportu.
+  final ValueChanged<Obdobi>? onNavazat;
+
+  @override
+  Widget build(BuildContext context) {
+    final navazujici = Obdobi.navazujici(export.obdobi.doVcetne);
+
+    return Karta(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Neutrální formulace schválně – aplikaci používají muži i ženy
+          // a „vytvořil jste" by polovinu z nich oslovovalo špatně.
+          Text(
+            'Reporty zatím pokryly nabíjení do '
+            '${Format.datum(export.obdobi.doVcetne)} '
+            '(vytvořeno ${Format.datum(export.vytvorenoAt)}).',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (navazujici == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Všechna nabíjení do dneška už report pokrývá.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            )
+          else
+            OdkazoveTlacitko(
+              popisek:
+                  'Navázat: ${Format.datum(navazujici.od)} – '
+                  '${Format.datum(navazujici.doVcetne)}',
+              onTap: onNavazat == null ? null : () => onNavazat!(navazujici),
+            ),
+        ],
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../../../../common/motiv/barvy.dart';
 import '../../../../common/motiv/rozmery.dart';
 import '../../../../common/widgety/prvky.dart';
 import '../../../auth/application/auth_providery.dart';
+import '../../../reporty/domain/zaznam_exportu.dart';
 import '../../../vozidla/application/vozidla_providery.dart';
 import '../../domain/mesicni_skupina.dart';
 import '../../domain/relace.dart';
@@ -127,6 +128,56 @@ class PredelMesice extends ConsumerWidget {
                 ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Stopa po vytvořeném reportu, v historii pod předělem měsíce.
+///
+/// Úmyslně tlumená a bez rámečku: není to záznam nabíjení, jen poznámka
+/// k měsíci. Rozkliknout se nedá – hotové PDF se nikam neukládá, aplikace
+/// ho předala systémovému sdílení a víc o něm neví.
+class RadekExportu extends StatelessWidget {
+  const RadekExportu(this.export, {super.key});
+
+  final ZaznamExportu export;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = context.barvy;
+    final pocet = export.pocetZaznamu == 0
+        ? 'bez záznamů'
+        : '${export.pocetZaznamu} nabíjení';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.ios_share, size: 16, color: b.textFaint),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Report ${Format.datum(export.obdobi.od)} – '
+                  '${Format.datum(export.obdobi.doVcetne)}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: b.textDim),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  'vytvořen ${Format.datum(export.vytvorenoAt)} · $pocet',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ],
       ),

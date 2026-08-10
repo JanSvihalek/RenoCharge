@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute;
@@ -14,6 +15,7 @@ import '../../nabijeni/application/nabijeni_providery.dart';
 import '../../nabijeni/domain/relace.dart';
 import '../../vozidla/application/vozidla_providery.dart';
 import '../domain/report.dart';
+import 'exporty_providery.dart';
 import 'report_pdf.dart';
 import 'zmenseni_fotky.dart';
 
@@ -104,12 +106,47 @@ class ReportController extends Notifier<StavReportu> {
             '${Format.datum(obdobi.doVcetne)}',
       );
 
+      _zapisStopu(
+        uid: uid,
+        obdobi: obdobi,
+        pocet: polozky.length,
+        sFotkami: sFotkami,
+      );
+
       state = const ReportPripraven();
       return polozky.length;
     } catch (chyba) {
       state = ReportChyba(AppChyba.zFirebase(chyba));
       return null;
     }
+  }
+
+  /// Poznamená do historie, že report za tohle období vznikl.
+  ///
+  /// Nečeká se na dokončení schválně. Firestore zapíše do místní
+  /// mezipaměti hned a posluchač historie se ozve, ale bez signálu
+  /// nedokončí zápis, dokud nedosáhne na server – čekáním by se export
+  /// bez internetu zasekl na hotovém PDF.
+  ///
+  /// Neúspěch se sem taky nedostane: report už je vytvořený a předaný
+  /// ke sdílení, chybová hláška po dokončené práci by jen mátla.
+  void _zapisStopu({
+    required String uid,
+    required Obdobi obdobi,
+    required int pocet,
+    required bool sFotkami,
+  }) {
+    unawaited(
+      ref
+          .read(exportyRepositoryProvider)
+          .zapis(
+            uid: uid,
+            obdobi: obdobi,
+            pocetZaznamu: pocet,
+            sFotkami: sFotkami,
+          )
+          .catchError((Object _) {}),
+    );
   }
 
   Future<List<PolozkaReportu>> _slozPolozky(

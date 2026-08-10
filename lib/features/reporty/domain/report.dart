@@ -16,7 +16,24 @@ class Obdobi {
   final DateTime od;
   final DateTime doVcetne;
 
-  DateTime get doExkluzivne => doVcetne.add(const Duration(days: 1));
+  /// Následující půlnoc. Počítá se přes složky data, ne přidáním
+  /// 24 hodin – v den, kdy se přechází na zimní čas, má den 25 hodin
+  /// a `add(Duration(days: 1))` by skončilo ve 23:00 téhož dne. Jednou
+  /// za rok by tak z reportu vypadla poslední hodina.
+  DateTime get doExkluzivne => nasledujiciDen(doVcetne);
+
+  static DateTime nasledujiciDen(DateTime den) =>
+      DateTime(den.year, den.month, den.day + 1);
+
+  /// Období navazující na poslední report: ode dne po jeho konci do
+  /// dneška. `null`, když poslední report došel až do dneška nebo dál –
+  /// pak není co nového vyexportovat.
+  static Obdobi? navazujici(DateTime posledniDoVcetne, [DateTime? ted]) {
+    final dnes = ted ?? DateTime.now();
+    final od = nasledujiciDen(posledniDoVcetne);
+    if (od.isAfter(DateTime(dnes.year, dnes.month, dnes.day))) return null;
+    return Obdobi(od: od, doVcetne: dnes);
+  }
 
   static Obdobi tentoMesic([DateTime? ted]) {
     final dnes = ted ?? DateTime.now();

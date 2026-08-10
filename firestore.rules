@@ -217,6 +217,33 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ── Stopy po vytvořených reportech ─────────────────────────────────
+    // Slouží k jedinému: aby uživatel poznal, od kdy dělat příští report.
+    // Osobní záznam jako nabíjení, takže ho vidí a zakládá jen jeho autor.
+    match /exporty/{exportId} {
+      allow read: if prihlasen() && stara().uid == ja();
+
+      allow create: if prihlasen()
+        && nova().uid == ja()
+        && nova().keys().hasOnly([
+          'uid', 'od', 'do_vcetne', 'pocet_zaznamu', 's_fotkami',
+          'vytvoreno_at'
+        ])
+        && nova().keys().hasAll([
+          'uid', 'od', 'do_vcetne', 'pocet_zaznamu', 'vytvoreno_at'
+        ])
+        && nova().od is timestamp
+        && nova().do_vcetne is timestamp
+        && nova().do_vcetne >= nova().od
+        && nova().pocet_zaznamu is int
+        && nova().pocet_zaznamu >= 0
+        && nova().vytvoreno_at is timestamp;
+
+      // Report se buď vytvořil, nebo ne. Přepsat ani smazat stopu nejde –
+      // jinak by tvrdila něco jiného, než co se doopravdy stalo.
+      allow update, delete: if false;
+    }
+
     // ── Nabíjecí relace ────────────────────────────────────────────────
     match /nabijeni/{relaceId} {
       function mojeRelace() {

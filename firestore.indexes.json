@@ -29,6 +29,20 @@
       ]
     },
     {
+      "collectionGroup": "exporty",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "vytvoreno_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "elektromery",
       "queryScope": "COLLECTION",
       "fields": [
