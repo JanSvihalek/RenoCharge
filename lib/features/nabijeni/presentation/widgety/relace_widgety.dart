@@ -6,7 +6,6 @@ import '../../../../common/motiv/barvy.dart';
 import '../../../../common/motiv/rozmery.dart';
 import '../../../../common/widgety/prvky.dart';
 import '../../../auth/application/auth_providery.dart';
-import '../../../reporty/domain/zaznam_exportu.dart';
 import '../../../vozidla/application/vozidla_providery.dart';
 import '../../domain/mesicni_skupina.dart';
 import '../../domain/relace.dart';
@@ -135,50 +134,76 @@ class PredelMesice extends ConsumerWidget {
   }
 }
 
-/// Stopa po vytvořeném reportu, v historii pod předělem měsíce.
+/// Stopa po vytvořeném reportu, v historii mezi relacemi.
 ///
-/// Úmyslně tlumená a bez rámečku: není to záznam nabíjení, jen poznámka
-/// k měsíci. Rozkliknout se nedá – hotové PDF se nikam neukládá, aplikace
-/// ho předala systémovému sdílení a víc o něm neví.
-class RadekExportu extends StatelessWidget {
-  const RadekExportu(this.export, {super.key});
+/// Leží tam, kam sahá konec jeho období, a je nakreslená **jako čára**:
+/// všechno pod ní už report zahrnul. Tohle je celý smysl toho záznamu –
+/// stačí se podívat, kde čára je, a ví se, kde příště navázat.
+///
+/// Úmyslně tlumená a bez rámečku: není to záznam nabíjení, jen značka
+/// v seznamu. Rozkliknout se nedá – hotové PDF se nikam neukládá,
+/// aplikace ho předala systémovému sdílení a víc o něm neví.
+class RadekExportu extends ConsumerWidget {
+  const RadekExportu(this.polozka, {super.key});
 
-  final ZaznamExportu export;
+  final ExportSeSpotrebou polozka;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
+    final export = polozka.export;
     final pocet = export.pocetZaznamu == 0
         ? 'bez záznamů'
         : '${export.pocetZaznamu} nabíjení';
 
+    // Bez zadané sazby nese roli spotřeba – jinak by v řádku zbyl jen
+    // počet záznamů a nebylo by vidět, o kolik v reportu šlo.
+    final castka = orientacniCastka(ref, polozka.celkemKwh);
+    final kolik = castka ?? '${Format.kwh(polozka.celkemKwh)} kWh';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.ios_share, size: 16, color: b.textFaint),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Report ${Format.datum(export.obdobi.od)} – '
-                  '${Format.datum(export.obdobi.doVcetne)}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: b.textDim),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.ios_share, size: 16, color: b.textFaint),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Report ${Format.datum(export.obdobi.od)} – '
+                      '${Format.datum(export.obdobi.doVcetne)}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: b.textDim),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'vytvořen ${Format.datum(export.vytvorenoAt)} · '
+                      '$pocet · níž je vše zahrnuté',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  'vytvořen ${Format.datum(export.vytvorenoAt)} · $pocet',
-                  style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                kolik,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: castka == null ? b.textDim : b.penize,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 8),
+          Container(height: 1, color: b.border),
         ],
       ),
     );

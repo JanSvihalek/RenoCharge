@@ -58,12 +58,16 @@ class HistorieObrazovka extends ConsumerWidget {
                 exporty: exporty,
               )) ...[
                 PredelMesice(skupina),
-                for (final e in skupina.exporty) RadekExportu(e),
-                for (final r in skupina.relace)
-                  RadekRelace(
-                    relace: r,
-                    onTap: () => otevriDetail(context, r.id),
-                  ),
+                // Report leží mezi relacemi podle konce svého období:
+                // co je pod čarou, to už zahrnul.
+                for (final polozka in skupina.polozky)
+                  switch (polozka) {
+                    PolozkaRelace(:final relace) => RadekRelace(
+                      relace: relace,
+                      onTap: () => otevriDetail(context, relace.id),
+                    ),
+                    PolozkaExportu(:final polozka) => RadekExportu(polozka),
+                  },
               ],
             ],
           ),
