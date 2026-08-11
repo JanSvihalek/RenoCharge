@@ -158,8 +158,9 @@ class RadekExportu extends ConsumerWidget {
 
     // Bez zadané sazby nese roli spotřeba – jinak by v řádku zbyl jen
     // počet záznamů a nebylo by vidět, o kolik v reportu šlo.
-    final castka = orientacniCastka(ref, polozka.celkemKwh);
-    final kolik = castka ?? '${Format.kwh(polozka.celkemKwh)} kWh';
+    final kolik =
+        orientacniCastka(ref, polozka.celkemKwh) ??
+        '${Format.kwh(polozka.celkemKwh)} kWh';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -193,11 +194,14 @@ class RadekExportu extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
+              // Šedá, ne zelená: v měsíci má být jedna hlavní částka –
+              // ta v předělu. Kdyby svítily obě stejně, přetahovaly by
+              // se o pozornost a člověk by musel číst, která je která.
               Text(
                 kolik,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: castka == null ? b.textDim : b.penize,
+                  color: b.textDim,
                 ),
               ),
             ],
