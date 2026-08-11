@@ -1,3 +1,4 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,43 +60,145 @@ class FoceniObrazovka extends ConsumerStatefulWidget {
   ConsumerState<FoceniObrazovka> createState() => _FoceniObrazovkaState();
 }
 
-/// `pracuje` pokrývá otevírání fotoaparátu i následné čtení snímku,
-/// `zruseno` je stav po zavření fotoaparátu bez snímku.
-enum _Faze { pracuje, zruseno, vysledek }
+/// `hledacek` je živý obraz z fotoaparátu, `pracuje` pokrývá zpracování
+/// snímku a čtení hodnoty, `zruseno` je stav bez snímku a bez hledáčku.
+enum _Faze { hledacek, pracuje, zruseno, vysledek }
 
-class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
+class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
+    with WidgetsBindingObserver {
   final _pole = TextEditingController();
 
-  /// Začíná se rovnou v `pracuje`, protože fotoaparát se otevírá hned.
-  /// Kdyby byl výchozí stav se spouští, blikla by před systémovým
-  /// fotoaparátem vlastní obrazovka fotoaparátu – dva fotoaparáty za
-  /// sebou, které aplikace nikdy neuměla obsluhovat.
+  /// Začíná se v `pracuje`, protože se rozbíhá kamera. Chvilku to trvá
+  /// a prázdná černá plocha bez vysvětlení vypadá jako zaseknutá appka.
   _Faze _faze = _Faze.pracuje;
-  String _prubeh = 'Otevírám fotoaparát…';
+  String _prubeh = 'Spouštím fotoaparát…';
 
-  /// Brání druhému spuštění, dokud první neskončí – dvě otevření
-  /// fotoaparátu naráz nedávají smysl.
+  /// Brání druhému spuštění, dokud první neskončí – dvě focení naráz
+  /// nedávají smysl.
   bool _jizBezi = false;
   PorizenaFotografie? _foto;
   bool _ocrUspelo = false;
   bool _rucniZadavani = false;
   String? _chyba;
 
+  /// Vlastní hledáček. `null`, dokud se kamera nerozběhne – nebo natrvalo,
+  /// když se rozběhnout nepovede a jede se přes systémový fotoaparát.
+  CameraController? _kamera;
+  bool _hledacekNedostupny = false;
+
   @override
   void initState() {
     super.initState();
-    // Fotoaparát se otevře rovnou – uživatel stojí u nabíječky
-    // a nemá důvod ťukat na další tlačítko.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _vyfot());
+    WidgetsBinding.instance.addObserver(this);
+    // Fotoaparát naskočí rovnou – uživatel stojí u nabíječky a nemá
+    // důvod ťukat na další tlačítko.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _spustHledacek());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _kamera?.dispose();
     _pole.dispose();
     super.dispose();
   }
 
-  Future<void> _vyfot() => _nacti(ZdrojFoto.fotoaparat);
+  /// Systém kameru na pozadí zabaví jiné aplikaci, takže se při odchodu
+  /// pouští a při návratu rozjíždí znovu. Bez toho se uživatel vrátí na
+  /// zamrzlý obraz.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState stav) {
+    if (_hledacekNedostupny || !mounted) return;
+    if (stav == AppLifecycleState.inactive) {
+      final stara = _kamera;
+      if (stara == null) return;
+      // Přes setState, ne potichu: `CameraPreview` by jinak zůstal
+      // viset na zahozeném ovladači a spadl při dalším překreslení.
+      setState(() => _kamera = null);
+      stara.dispose();
+    } else if (stav == AppLifecycleState.resumed && _kamera == null) {
+      _spustHledacek();
+    }
+  }
+
+  Future<void> _spustHledacek() async {
+    if (_hledacekNedostupny) return;
+    try {
+      final kamery = await availableCameras();
+      if (kamery.isEmpty) throw const KameraNedostupna();
+      final zadni = kamery.firstWhere(
+        (k) => k.lensDirection == CameraLensDirection.back,
+        orElse: () => kamery.first,
+      );
+
+      final ovladac = CameraController(
+        zadni,
+        // Počítadlo bývá malé a čte se z něj číslo, takže se šetřit
+        // rozlišením nevyplácí. Snímek se stejně hned zmenší na 1600 px.
+        ResolutionPreset.veryHigh,
+        enableAudio: false,
+        imageFormatGroup: ImageFormatGroup.jpeg,
+      );
+      await ovladac.initialize();
+      if (!mounted) {
+        await ovladac.dispose();
+        return;
+      }
+      setState(() {
+        _kamera = ovladac;
+        // Do hledáčku jen tehdy, když se zrovna nic jiného neděje.
+        // Návrat z galerie taky projde přes `resumed`, a to se čeká
+        // vybraný snímek, ne živý obraz.
+        if (_faze == _Faze.pracuje && _foto == null && !_jizBezi) {
+          _faze = _Faze.hledacek;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Když vlastní hledáček nejde spustit, systémový fotoaparát pořád
+      // funguje. Uživatel u nabíječky nesmí zůstat na prázdné obrazovce
+      // jen proto, že se nepovedlo hezčí řešení.
+      _hledacekNedostupny = true;
+      await _nacti(ZdrojFoto.fotoaparat);
+    }
+  }
+
+  /// Spoušť vlastního hledáčku; bez něj otevře systémový fotoaparát.
+  Future<void> _vyfot() async {
+    final kamera = _kamera;
+    if (kamera == null) return _nacti(ZdrojFoto.fotoaparat);
+    if (_jizBezi) return;
+    _jizBezi = true;
+    setState(() {
+      _faze = _Faze.pracuje;
+      _prubeh = 'Zpracovávám snímek…';
+      _chyba = null;
+    });
+    try {
+      final snimek = await kamera.takePicture();
+      final foto = await ref.read(fotoSluzbaProvider).zHledacku(snimek.path);
+      if (!mounted) return;
+      await _prectiHodnotu(foto);
+    } catch (chyba) {
+      if (!mounted) return;
+      setState(() => _faze = _foto == null ? _Faze.hledacek : _Faze.vysledek);
+      ukazChybu(context, chyba);
+    } finally {
+      _jizBezi = false;
+    }
+  }
+
+  /// Návrat k hledáčku po pořízeném snímku („Vyfotit znovu").
+  void _znovu() {
+    if (_kamera == null) {
+      _nacti(ZdrojFoto.fotoaparat);
+      return;
+    }
+    setState(() {
+      _faze = _Faze.hledacek;
+      _chyba = null;
+    });
+  }
 
   Future<void> _zGalerie() => _nacti(ZdrojFoto.galerie);
 
@@ -112,30 +215,40 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     try {
       final foto = await ref.read(fotoSluzbaProvider).nactiPocitadlo(zdroj);
       if (!mounted) return;
-      setState(() => _prubeh = 'Čtu hodnotu ze snímku…');
-      final hodnota = await ref
-          .read(ocrSluzbaProvider)
-          .najdiHodnotu(foto.cestaVSouborovemSystemu);
-      if (!mounted) return;
-      setState(() {
-        _foto = foto;
-        _ocrUspelo = hodnota != null;
-        _rucniZadavani = false;
-        _pole.text = hodnota == null ? '' : Format.kwh(hodnota);
-        _faze = _Faze.vysledek;
-      });
+      await _prectiHodnotu(foto);
     } on FoceniZruseno {
       if (!mounted) return;
-      // Zrušený výběr obrazovku nezavírá – uživatel se tím dostane
-      // k volbě mezi fotoaparátem a galerií. Ven vede křížek nahoře.
-      setState(() => _faze = _foto == null ? _Faze.zruseno : _Faze.vysledek);
+      // Zrušený výběr obrazovku nezavírá – uživatel se vrátí k hledáčku,
+      // nebo k volbě cesty, když hledáček není. Ven vede křížek nahoře.
+      setState(() => _faze = _vychoziFaze);
     } catch (chyba) {
       if (!mounted) return;
-      setState(() => _faze = _foto == null ? _Faze.zruseno : _Faze.vysledek);
+      setState(() => _faze = _vychoziFaze);
       ukazChybu(context, chyba);
     } finally {
       _jizBezi = false;
     }
+  }
+
+  /// Kam se vrátit, když focení skončí bez snímku.
+  _Faze get _vychoziFaze {
+    if (_foto != null) return _Faze.vysledek;
+    return _kamera == null ? _Faze.zruseno : _Faze.hledacek;
+  }
+
+  Future<void> _prectiHodnotu(PorizenaFotografie foto) async {
+    setState(() => _prubeh = 'Čtu hodnotu ze snímku…');
+    final hodnota = await ref
+        .read(ocrSluzbaProvider)
+        .najdiHodnotu(foto.cestaVSouborovemSystemu);
+    if (!mounted) return;
+    setState(() {
+      _foto = foto;
+      _ocrUspelo = hodnota != null;
+      _rucniZadavani = false;
+      _pole.text = hodnota == null ? '' : Format.kwh(hodnota);
+      _faze = _Faze.vysledek;
+    });
   }
 
   void _potvrd() {
@@ -183,28 +296,44 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     );
   }
 
-  /// Plocha nad panelem. Dokud snímek není, je tu jen tmavý podklad –
-  /// žádné rámečky ani spoušť, protože živý obraz z fotoaparátu tudy
-  /// neteče. Fotí systémový fotoaparát ve vlastní obrazovce.
+  /// Plocha nad panelem: živý obraz z fotoaparátu, nebo pořízený snímek.
+  ///
+  /// Hledáček je vlastní, stejně jako u načítání elektroměru – rámeček
+  /// i spoušť tak leží nad skutečným obrazem z kamery, ne nad tmavou
+  /// plochou. Když se kamera nerozběhne, zůstane podklad prázdný a fotí
+  /// systémový fotoaparát.
   Widget _nahled() {
     final foto = _foto;
     final ukazujeSnimek = foto != null && _faze == _Faze.vysledek;
+    final kamera = _kamera;
+    final zivyObraz = kamera != null && !ukazujeSnimek;
 
     return Stack(
       alignment: Alignment.center,
       children: [
         Positioned.fill(
-          child: ukazujeSnimek
-              ? Image.memory(foto.bajty, fit: BoxFit.cover)
-              : const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      colors: [Color(0xFF262626), Color(0xFF0A0A0A)],
-                      radius: 0.75,
-                    ),
-                  ),
+          child: switch ((ukazujeSnimek, zivyObraz)) {
+            (true, _) => Image.memory(foto!.bajty, fit: BoxFit.cover),
+            (_, true) => _ZivyObraz(kamera!),
+            _ => const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [Color(0xFF262626), Color(0xFF0A0A0A)],
+                  radius: 0.75,
                 ),
+              ),
+            ),
+          },
         ),
+        if (_faze == _Faze.hledacek) ...[
+          const _Zamerovac(),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _Spoust(onVyfotit: _vyfot, onGalerie: _zGalerie),
+          ),
+        ],
         if (_faze == _Faze.pracuje)
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -221,10 +350,9 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     );
   }
 
-  /// Stav po zavření fotoaparátu bez snímku. Dřív tu byla vlastní
-  /// spoušť s rámečkem, což vypadalo jako druhý fotoaparát – jenže
-  /// aplikace vlastní hledáček nemá a klepnutí jen znovu otevře ten
-  /// systémový. Radši se řekne, co se stalo, a nabídnou obě cesty.
+  /// Stav po zavření systémového fotoaparátu bez snímku. Sem se dojde
+  /// jen tehdy, když se vlastní hledáček nerozběhl – jinak je pod
+  /// obrazem spoušť a tenhle panel není potřeba.
   Widget _panelZruseno() {
     final b = context.barvy;
     return Container(
@@ -253,7 +381,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
             popisek: 'Vyfotit počítadlo',
             ikona: Icons.photo_camera_outlined,
             vyska: 58,
-            onTap: _vyfot,
+            onTap: _znovu,
           ),
           OdkazoveTlacitko(popisek: 'Vybrat fotku z galerie', onTap: _zGalerie),
         ],
@@ -295,7 +423,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
     ?_chybovyText(),
     const SizedBox(height: 4),
     PrimarniTlacitko(popisek: 'Potvrdit stav', vyska: 58, onTap: _potvrd),
-    OdkazoveTlacitko(popisek: 'Vyfotit znovu', onTap: _vyfot),
+    OdkazoveTlacitko(popisek: 'Vyfotit znovu', onTap: _znovu),
     OdkazoveTlacitko(popisek: 'Vybrat jinou z galerie', onTap: _zGalerie),
   ];
 
@@ -318,7 +446,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
       ),
       PuvodFotky(_foto!),
       const SizedBox(height: 4),
-      PrimarniTlacitko(popisek: 'Vyfotit znovu', vyska: 58, onTap: _vyfot),
+      PrimarniTlacitko(popisek: 'Vyfotit znovu', vyska: 58, onTap: _znovu),
       OdkazoveTlacitko(popisek: 'Vybrat jinou z galerie', onTap: _zGalerie),
       if (!_rucniZadavani)
         OdkazoveTlacitko(
@@ -357,6 +485,122 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka> {
         style: Theme.of(
           context,
         ).textTheme.bodyMedium?.copyWith(color: context.barvy.danger),
+      ),
+    );
+  }
+}
+
+/// Živý obraz roztažený přes celou plochu.
+///
+/// `previewSize` chodí v orientaci na šířku bez ohledu na to, jak telefon
+/// držíme, proto se rozměry prohazují – jinak by byl obraz rozplácnutý.
+class _ZivyObraz extends StatelessWidget {
+  const _ZivyObraz(this.kamera);
+
+  final CameraController kamera;
+
+  @override
+  Widget build(BuildContext context) {
+    final velikost = kamera.value.previewSize;
+    if (velikost == null) return CameraPreview(kamera);
+
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: velikost.height,
+        height: velikost.width,
+        child: CameraPreview(kamera),
+      ),
+    );
+  }
+}
+
+/// Rámeček na displej počítadla. Naležato, protože počítadlo je široké
+/// a nízké – čtverec jako u QR kódu by sváděl k focení zdálky.
+class _Zamerovac extends StatelessWidget {
+  const _Zamerovac();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 280,
+            height: 140,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white70, width: 3),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Displej do rámečku, ať je číslo ostré',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              shadows: [Shadow(blurRadius: 6)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Spoušť a cesta do galerie, obojí nad živým obrazem.
+class _Spoust extends StatelessWidget {
+  const _Spoust({required this.onVyfotit, required this.onGalerie});
+
+  final VoidCallback onVyfotit;
+  final VoidCallback onGalerie;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            label: 'Vyfotit počítadlo',
+            child: GestureDetector(
+              onTap: onVyfotit,
+              child: Container(
+                width: 74,
+                height: 74,
+                decoration: BoxDecoration(
+                  color: const Color(0x33FFFFFF),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 4),
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.photo_camera,
+                    size: 30,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextButton(
+            onPressed: onGalerie,
+            child: const Text(
+              'Vybrat fotku z galerie',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                shadows: [Shadow(blurRadius: 6)],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

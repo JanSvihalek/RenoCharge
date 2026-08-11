@@ -1,13 +1,16 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:exif/exif.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../common/chyby.dart';
 import '../../../common/konfigurace.dart';
 import '../domain/porizena_fotografie.dart';
+import 'zmenseni_snimku.dart';
 
 /// Pořízení fotografie počítadla – fotoaparátem, nebo výběrem z galerie.
 ///
@@ -55,6 +58,30 @@ class FotoSluzba {
       porizenoAt: casZExif ?? casVraceni,
       casZExif: casZExif != null,
       zdroj: zdroj,
+    );
+  }
+
+  /// Snímek z vlastního hledáčku v aplikaci.
+  ///
+  /// Fotoaparát vrací plné rozlišení, takže se snímek srovná na stejný
+  /// rozměr a kvalitu jako u fotopickeru a **přepíše se jím i soubor** –
+  /// OCR pak čte přesně ty bajty, které se nahrají do Storage.
+  ///
+  /// Čas se bere z hodin telefonu, ne z EXIF: snímek vznikl teď, v ruce
+  /// uživatele, a to je přesnější údaj než metadata, o která by ho
+  /// překódování stejně připravilo.
+  Future<PorizenaFotografie> zHledacku(String cesta) async {
+    final soubor = File(cesta);
+    final bajty = await compute(zmensiProUlozeni, await soubor.readAsBytes());
+    await soubor.writeAsBytes(bajty, flush: true);
+
+    return PorizenaFotografie(
+      cestaVSouborovemSystemu: cesta,
+      bajty: bajty,
+      sha256: spocitejOtisk(bajty),
+      porizenoAt: DateTime.now(),
+      casZExif: false,
+      zdroj: ZdrojFoto.fotoaparat,
     );
   }
 

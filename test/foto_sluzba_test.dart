@@ -2,9 +2,18 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:renocharge/common/konfigurace.dart';
 import 'package:renocharge/features/nabijeni/application/foto_sluzba.dart';
+import 'package:renocharge/features/nabijeni/application/zmenseni_snimku.dart';
 import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
 import 'package:renocharge/features/nabijeni/domain/porizena_fotografie.dart';
+
+Uint8List _jpeg({required int sirka, required int vyska}) {
+  final obrazek = img.Image(width: sirka, height: vyska);
+  img.fill(obrazek, color: img.ColorRgb8(120, 140, 160));
+  return img.encodeJpg(obrazek, quality: 95);
+}
 
 void main() {
   group('rozparsujExifCas', () {
@@ -43,6 +52,30 @@ void main() {
       final a = FotoSluzba.spocitejOtisk(Uint8List.fromList([1, 2, 3]));
       final b = FotoSluzba.spocitejOtisk(Uint8List.fromList([1, 2, 4]));
       expect(a, isNot(b));
+    });
+  });
+
+  group('zmensiProUlozeni', () {
+    // Vlastní hledáček dodává plné rozlišení. Fotky ve Storage musí
+    // vypadat stejně bez ohledu na to, kudy do aplikace přišly.
+    test('srovná široký snímek na limit z konfigurace', () {
+      final zmenseny = zmensiProUlozeni(_jpeg(sirka: 4032, vyska: 3024));
+      final obrazek = img.decodeJpg(zmenseny)!;
+
+      expect(obrazek.width, Konfigurace.maxSirkaFoto.round());
+      expect(obrazek.height, 1200, reason: 'poměr stran zůstává');
+    });
+
+    test('užší snímek se nezvětšuje', () {
+      final vysledek = zmensiProUlozeni(_jpeg(sirka: 800, vyska: 600));
+      expect(img.decodeJpg(vysledek)!.width, 800);
+    });
+
+    // Kdyby snímek nešel rozkódovat, je větší soubor pořád lepší než
+    // chybějící důkaz – nesmí se ztratit ani spadnout.
+    test('nerozkódovatelný vstup se vrátí beze změny', () {
+      final nesmysl = Uint8List.fromList([1, 2, 3, 4, 5]);
+      expect(zmensiProUlozeni(nesmysl), nesmysl);
     });
   });
 
