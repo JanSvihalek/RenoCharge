@@ -85,7 +85,7 @@ void main() {
     test('běžný uživatel elektroměry nevidí', () {
       final zalozky = zalozkyProRoli(Role.uzivatel);
       expect(zalozky, isNot(contains(Zalozka.elektromery)));
-      expect(zalozky, [Zalozka.nabijeni, Zalozka.historie, Zalozka.nastaveni]);
+      expect(zalozky, [Zalozka.nabijeni, Zalozka.nastaveni]);
     });
 
     test('údržba i správce elektroměry vidí', () {
@@ -117,13 +117,12 @@ void main() {
       }
     });
 
-    // Obě evidence vlevo vedle sebe, ohlédnutí za nimi až za nimi.
-    // Údržbář má na obchůzce elektroměry na druhé pozici, ne na třetí.
-    test('elektroměry stojí hned za nabíjením, historie až za nimi', () {
+    // Každá záložka je jedna evidence, ne pohled na ni. Historie
+    // nabíjení proto vlastní záložku nemá – bydlí v Nabíjení.
+    test('údržba má dvě evidence a nastavení', () {
       expect(zalozkyProRoli(Role.udrzba), [
         Zalozka.nabijeni,
         Zalozka.elektromery,
-        Zalozka.historie,
         Zalozka.nastaveni,
       ]);
     });

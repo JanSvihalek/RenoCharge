@@ -19,9 +19,6 @@ abstract final class Konfigurace {
   static const double maxSirkaFoto = 1600;
   static const int kvalitaFoto = 80;
 
-  /// Kolik posledních relací se ukazuje na domovské obrazovce.
-  static const int poslednichRelaciNaDomovske = 5;
-
   /// Strop pro načtení historie – fáze 1 stránkování neřeší.
   static const int limitHistorie = 100;
 }

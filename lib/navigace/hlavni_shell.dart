@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../common/motiv/barvy.dart';
 import '../features/nabijeni/presentation/domovska_obrazovka.dart';
-import '../features/nabijeni/presentation/historie_obrazovka.dart';
 import '../features/auth/application/auth_providery.dart';
 import '../features/auth/domain/uzivatel.dart';
 import '../features/elektromery/presentation/elektromery_obrazovka.dart';
@@ -14,17 +13,17 @@ import '../features/nastaveni/presentation/nastaveni_obrazovka.dart';
 ///
 /// `elektromery` vidí jen role `udrzba`. Záložky se proto neberou
 /// z tohohle výčtu napřímo, ale ze [zalozkyProRoli].
-enum Zalozka { nabijeni, elektromery, historie, nastaveni }
+enum Zalozka { nabijeni, elektromery, nastaveni }
 
 /// Které záložky se dané roli ukážou, v pořadí zleva doprava.
 ///
-/// Vlevo je práce, vpravo ohlédnutí za ní: nabíjení a elektroměry jsou
-/// to, kvůli čemu uživatel aplikaci otevírá, historie se prohlíží až
-/// potom. Údržbáři tím obě evidence leží vedle sebe.
+/// Každá záložka je **jedna evidence**, ne pohled na ni. Historie
+/// nabíjení proto vlastní záložku nemá – bydlí pod tlačítkem v Nabíjení,
+/// stejně jako odečty bydlí v detailu svého elektroměru. Samostatná
+/// „Historie" vedle Elektroměrů neříkala, čeho.
 List<Zalozka> zalozkyProRoli(Role role) => [
   Zalozka.nabijeni,
   if (role.spravujeElektromery) Zalozka.elektromery,
-  Zalozka.historie,
   Zalozka.nastaveni,
 ];
 
@@ -43,7 +42,6 @@ class ZalozkaController extends Notifier<Zalozka> {
 Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
   Zalozka.nabijeni => const DomovskaObrazovka(),
   Zalozka.elektromery => const ElektromeryObrazovka(),
-  Zalozka.historie => const HistorieObrazovka(),
   Zalozka.nastaveni => const NastaveniObrazovka(),
 };
 
@@ -55,7 +53,6 @@ Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
     ikona: Icons.electric_meter_outlined,
     popisek: 'Elektroměry',
   ),
-  Zalozka.historie => (ikona: Icons.access_time, popisek: 'Historie'),
   Zalozka.nastaveni => (ikona: Icons.settings_outlined, popisek: 'Nastavení'),
 };
 

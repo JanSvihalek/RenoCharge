@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../common/formatovani.dart';
-import '../../../common/konfigurace.dart';
 import '../../../common/motiv/barvy.dart';
 import '../../../common/motiv/rezim_motivu.dart';
 import '../../../common/motiv/rozmery.dart';
@@ -10,12 +9,17 @@ import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../../navigace/toky.dart';
 import '../../auth/application/auth_providery.dart';
+import '../../reporty/application/exporty_providery.dart';
 import '../application/nabijeni_providery.dart';
+import '../domain/mesicni_skupina.dart';
 import '../domain/relace.dart';
 import 'widgety/relace_widgety.dart';
 
-/// Domovská obrazovka ve dvou podobách: buď nabízí zahájení nabíjení,
-/// nebo ukazuje kartu probíhající relace.
+/// Nabíjení: zahájení nebo běžící relace nahoře, pod tím celá historie.
+///
+/// Historie sem patří proto, že je to historie **tohohle**. Vlastní
+/// záložka „Historie" vedle Elektroměrů neříkala, čeho – a odečty
+/// elektroměrů to mají stejně, taky bydlí v detailu svého zařízení.
 class DomovskaObrazovka extends ConsumerWidget {
   const DomovskaObrazovka({super.key});
 
@@ -23,13 +27,12 @@ class DomovskaObrazovka extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profil = ref.watch(profilProvider).value;
     final otevrena = ref.watch(otevrenaRelaceProvider);
-    final historie = ref.watch(historieProvider).value ?? const <Relace>[];
+    final historie = ref.watch(historieProvider);
+    // Chybu tady neřešíme: bez seznamu exportů je historie pořád
+    // historie, jen bez poznámek o vytvořených reportech.
+    final exporty = ref.watch(historieExportuProvider).value ?? const [];
 
     final relace = otevrena.value;
-    final posledni = historie
-        .where((r) => !r.probiha)
-        .take(Konfigurace.poslednichRelaciNaDomovske)
-        .toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -57,21 +60,43 @@ class DomovskaObrazovka extends ConsumerWidget {
               onTap: () => otevriZahajeni(context),
             ),
           ),
-        const NadpisSekce('Posledních 5 relací'),
-        if (relace != null)
-          RadekRelace(
-            relace: relace,
-            onTap: () => otevriDetail(context, relace.id),
+        switch (historie) {
+          AsyncError() => ChybovyBlok(
+            zprava: 'Historii se nepodařilo načíst.',
+            onZkusitZnovu: () => ref.invalidate(historieProvider),
           ),
-        if (posledni.isEmpty && relace == null)
-          const PrazdnyStav(
+          AsyncData(:final value) when value.isEmpty => const PrazdnyStav(
             text:
                 'Zatím tu nic není.\nPrvní nabíjení zahájíte tlačítkem nahoře.',
             ikona: Icons.ev_station_outlined,
-          )
-        else
-          for (final r in posledni)
-            RadekRelace(relace: r, onTap: () => otevriDetail(context, r.id)),
+          ),
+          // Předěly po měsících se součtem – typická otázka nad historií
+          // je „kolik jsem nabil minulý měsíc", ne „kolik celkem".
+          AsyncData(:final value) => Column(
+            children: [
+              for (final skupina in seskupPoMesicich(
+                value,
+                exporty: exporty,
+              )) ...[
+                PredelMesice(skupina),
+                // Report leží mezi relacemi podle konce svého období:
+                // co je pod čarou, to už zahrnul.
+                for (final polozka in skupina.polozky)
+                  switch (polozka) {
+                    PolozkaRelace(:final relace) => RadekRelace(
+                      relace: relace,
+                      onTap: () => otevriDetail(context, relace.id),
+                    ),
+                    PolozkaExportu(:final polozka) => RadekExportu(polozka),
+                  },
+              ],
+            ],
+          ),
+          _ => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        },
       ],
     );
   }
@@ -107,6 +132,14 @@ class _Hlavicka extends ConsumerWidget {
               ],
             ),
           ),
+          // Export je tu proto, že historie je hned pod hlavičkou –
+          // vyjede se z ní PDF, takže tlačítko patří k ní.
+          IkonoveTlacitko(
+            ikona: Icons.ios_share,
+            popisPristupnosti: 'Exportovat období do PDF',
+            onTap: () => otevriExport(context),
+          ),
+          const SizedBox(width: 8),
           IkonoveTlacitko(
             ikona: jeTmavy
                 ? Icons.light_mode_outlined

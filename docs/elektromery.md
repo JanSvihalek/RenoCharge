@@ -116,8 +116,11 @@ odecty        pobocka_id ASC,    odecteno_at DESC
 ## Obrazovky
 
 Nová záložka **Elektroměry**, viditelná jen pro roli `udrzba`, hned za
-Nabíjením – obě evidence vedle sebe, historie až za nimi. Běžný
-zaměstnanec má tab bar jako dnes (Nabíjení, Historie, Nastavení).
+Nabíjením. Běžný zaměstnanec má jen Nabíjení a Nastavení.
+
+Každá záložka je **jedna evidence**, ne pohled na ni: historie nabíjení
+bydlí v Nabíjení pod tlačítkem, historie odečtů v detailu elektroměru.
+Samostatná záložka „Historie" tu chvíli byla a neříkala, čeho.
 
 ### 1. Seznam elektroměrů
 
