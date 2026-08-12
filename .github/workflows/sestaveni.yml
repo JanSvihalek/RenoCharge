@@ -1,8 +1,12 @@
-name: iOS build
+name: Sestavení aplikace
 
 # macOS runnery se u privátního repozitáře účtují desetinásobkem minut
 # oproti Linuxu, proto build neběží na každý push do větve, ale jen na
 # main a na ruční spuštění. Kontrola kódu a testy běží na Linuxu.
+#
+# Obě platformy jsou v jednom workflow schválně: kontrola a testy tak
+# proběhnou jednou a oba buildy na ně navazují. Ve dvou souborech by
+# se analýza pouštěla dvakrát na každý push.
 on:
   push:
     branches: [main]
@@ -36,6 +40,57 @@ jobs:
 
       - name: Testy
         run: flutter test
+
+  android:
+    name: Sestavení APK
+    needs: kontrola
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Android Gradle Plugin i Flutter chtějí JDK 17. Runner má
+      # předinstalováno víc verzí, tak si tu svoji vybereme sami.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Závislosti
+        run: flutter pub get
+
+      # Jeden univerzální APK, ne rozdělený podle architektur – jde
+      # o ruční instalaci na jeden telefon, ne o distribuci přes obchod.
+      # Číslo buildu bere pořadí běhu, ať se dá poznat, co má tester
+      # nainstalované.
+      - name: Sestavení APK
+        run: flutter build apk --release --build-number=${{ github.run_number }}
+
+      - name: Velikost a podpis
+        run: |
+          set -euo pipefail
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          ls -lh "$APK"
+          # Bez vlastního klíče podepisuje Gradle klíčem z ladicí
+          # klíčenky. Ta na jednorázovém runneru pokaždé vzniká znovu,
+          # takže se podpis mezi běhy liší a tester musí před instalací
+          # novější verze tu starou odinstalovat. Data jsou ve Firestore,
+          # takže o nic nepřijde. Až to bude na obtíž, přibude vlastní
+          # klíč v Secrets a tenhle odstavec zmizí.
+          echo "::notice::APK je podepsané ladicím klíčem – před instalací nové verze odinstalujte starou."
+
+      - name: Uložení APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RenoCharge-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+          if-no-files-found: error
 
   ios:
     name: Sestavení a TestFlight
