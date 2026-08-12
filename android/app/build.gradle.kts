@@ -35,9 +35,17 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Zatím se podepisuje ladicím klíčem. APK se rozdává ručně
+            // testerům, ne přes obchod; přihlašuje se e-mailem a heslem,
+            // takže na otisku certifikátu ve Firebase nic nezávisí.
+            // Cenou je, že se podpis mezi buildy liší a novou verzi jde
+            // nainstalovat až po odinstalování té staré.
             signingConfig = signingConfigs.getByName("debug")
+
+            // Přidává, nenahrazuje – pravidla od Flutteru i od knihoven
+            // zůstávají v platnosti. Co je v souboru a proč, viz
+            // proguard-rules.pro.
+            proguardFiles("proguard-rules.pro")
         }
     }
 }
