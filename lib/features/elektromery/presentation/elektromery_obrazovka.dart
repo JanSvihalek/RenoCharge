@@ -51,7 +51,7 @@ class ElektromeryObrazovka extends ConsumerWidget {
                   final pocet = await ref
                       .read(reportControllerProvider.notifier)
                       .vytvorStitky(
-                        popisPobocky: pobocka.kod,
+                        popis: pobocka.kod,
                         elektromery: elektromery.value ?? const [],
                       );
                   if (context.mounted && pocet == 0) {

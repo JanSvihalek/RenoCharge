@@ -371,6 +371,33 @@ void _testyReportuElektromeru() {
       final bajty = await (await ReportPdf.nacti()).sestavStitky(const []);
       expect(bajty.length, greaterThan(500));
     });
+
+    // Jeden štítek se tiskne, když se ten nalepený poškodí nebo když
+    // elektroměr přibude až po hromadném tisku za pobočku.
+    test('jediný elektroměr dá stejně platný arch', () async {
+      final bajty = await (await ReportPdf.nacti()).sestavStitky([_e1]);
+
+      expect(String.fromCharCodes(bajty.sublist(0, 5)), '%PDF-');
+      expect(bajty.length, greaterThan(1000));
+    });
+
+    test('název souboru rozliší jeden štítek od archu', () {
+      expect(
+        ReportController.nazevStitku('elektromer 18 342 771', jeden: true),
+        'qr-stitek-elektromer-18-342-771.pdf',
+      );
+      expect(
+        ReportController.nazevStitku('BSL', jeden: false),
+        'qr-stitky-bsl.pdf',
+      );
+    });
+
+    test('diakritika a mezery z názvu souboru zmizí', () {
+      expect(
+        ReportController.nazevStitku('Hala B – rozvaděč R3', jeden: true),
+        'qr-stitek-hala-b-rozvadec-r3.pdf',
+      );
+    });
   });
 
   test('název souboru reportu elektroměru nese předponu i číslo', () {

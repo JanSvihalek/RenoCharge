@@ -316,6 +316,9 @@ reportům, takže to nestálo skoro nic.
 Pod kódem je i číslo a umístění – aby šel štítek nalepit na správný
 elektroměr a aby se dal přečíst okem, když se kód poškrábe.
 
+Jednotlivý štítek se tiskne z detailu elektroměru. Hodí se, když se ten
+nalepený poškodí nebo když elektroměr přibude až po hromadném tisku.
+
 ## Report
 
 Za pobočku a měsíc: tabulka *elektroměr · minulý stav · nový stav ·

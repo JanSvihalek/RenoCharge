@@ -7,6 +7,7 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../nabijeni/presentation/prohlizec_fotky.dart';
+import '../../reporty/application/report_controller.dart';
 import '../../reporty/presentation/export_obrazovka.dart';
 import '../application/elektromery_providery.dart';
 import '../application/odecty_controller.dart';
@@ -142,6 +143,17 @@ class _Obsah extends ConsumerWidget {
               builder: (_) => ExportObrazovka(elektromer: elektromer),
             ),
           ),
+        ),
+        // Jednotlivý štítek se hodí, když se ten nalepený poškodí nebo
+        // když elektroměr přibude po hromadném tisku za pobočku.
+        OdkazoveTlacitko(
+          popisek: 'Vytisknout QR štítek',
+          onTap: () => ref
+              .read(reportControllerProvider.notifier)
+              .vytvorStitky(
+                popis: 'elektromer ${elektromer.cislo}',
+                elektromery: [elektromer],
+              ),
         ),
         OdkazoveTlacitko(
           popisek: 'Upravit elektroměr',

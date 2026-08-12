@@ -272,11 +272,15 @@ class ReportController extends Notifier<StavReportu> {
     return fotky;
   }
 
-  /// Arch QR štítků pro elektroměry pobočky, k vytištění na samolepky.
+  /// QR štítky k vytištění na samolepky – celá pobočka, nebo jediný
+  /// elektroměr, když se štítek poškodí nebo přibude kus do evidence.
+  ///
+  /// [popis] jde do názvu souboru i do předmětu mailu, aby se dalo poznat,
+  /// co je uvnitř, ještě než se PDF otevře.
   ///
   /// Vrací počet vysázených štítků, nebo `null` při chybě.
   Future<int?> vytvorStitky({
-    required String popisPobocky,
+    required String popis,
     required List<Elektromer> elektromery,
   }) async {
     if (probiha) return null;
@@ -286,10 +290,14 @@ class ReportController extends Notifier<StavReportu> {
       state = const ReportSestavuje();
       final bajty = await (await ReportPdf.nacti()).sestavStitky(elektromery);
 
+      final jeden = elektromery.length == 1;
+
       await Printing.sharePdf(
         bytes: bajty,
-        filename: 'qr-stitky-${bezDiakritiky(popisPobocky).toLowerCase()}.pdf',
-        subject: 'QR štítky elektroměrů · $popisPobocky',
+        filename: nazevStitku(popis, jeden: jeden),
+        subject: jeden
+            ? 'QR štítek elektroměru · $popis'
+            : 'QR štítky elektroměrů · $popis',
       );
 
       state = const ReportPripraven();
@@ -298,6 +306,14 @@ class ReportController extends Notifier<StavReportu> {
       state = ReportChyba(AppChyba.zFirebase(chyba));
       return null;
     }
+  }
+
+  /// `qr-stitek-elektromer-18-342-771.pdf`, pro pobočku `qr-stitky-bsl.pdf`.
+  static String nazevStitku(String popis, {required bool jeden}) {
+    final nazev = bezDiakritiky(
+      popis,
+    ).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    return '${jeden ? 'qr-stitek' : 'qr-stitky'}-$nazev.pdf';
   }
 
   /// `report-nabijeni-jan-svihalek-2026-07-01-2026-07-31.pdf`
