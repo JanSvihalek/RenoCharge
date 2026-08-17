@@ -16,12 +16,36 @@ env:
   FLUTTER_VERSION: 3.41.8
   BUNDLE_ID: dev.svihalek.renocharge
 
+  # Číslo buildu se skládá z pořadí běhu a tohohle posunu.
+  #
+  # Proč posun: GitHub počítá `run_number` zvlášť pro každý soubor
+  # s workflow. Když se soubor přejmenuje – tenhle vznikl z ios.yml –
+  # počítadlo začne znovu od jedničky a App Store Connect nové buildy
+  # odmítne, protože číslo už bylo použité. Poslední build ze starého
+  # workflow měl 24, takže posun o sto to bezpečně přeskočí.
+  #
+  # Při dalším přejmenování souboru se posun musí zvýšit nad nejvyšší
+  # dosud nahrané číslo. Snížit ho nejde nikdy.
+  POSUN_BUILDU: 100
+
 jobs:
   kontrola:
     name: Analýza a testy
     runs-on: ubuntu-latest
+    outputs:
+      cislo_buildu: ${{ steps.verze.outputs.cislo }}
     steps:
       - uses: actions/checkout@v4
+
+      # Počítá se jednou tady a obě platformy si ho vezmou, ať nesou
+      # buildy se stejným číslem stejný kód.
+      - name: Číslo buildu
+        id: verze
+        run: |
+          set -euo pipefail
+          CISLO=$(( POSUN_BUILDU + GITHUB_RUN_NUMBER ))
+          echo "cislo=$CISLO" >> "$GITHUB_OUTPUT"
+          echo "Build číslo $CISLO"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -66,10 +90,12 @@ jobs:
 
       # Jeden univerzální APK, ne rozdělený podle architektur – jde
       # o ruční instalaci na jeden telefon, ne o distribuci přes obchod.
-      # Číslo buildu bere pořadí běhu, ať se dá poznat, co má tester
-      # nainstalované.
+      # Číslo buildu je stejné jako u iOS, ať se dá poznat, co má tester
+      # nainstalované, bez ohledu na platformu.
       - name: Sestavení APK
-        run: flutter build apk --release --build-number=${{ github.run_number }}
+        run: |
+          flutter build apk --release \
+            --build-number=${{ needs.kontrola.outputs.cislo_buildu }}
 
       - name: Velikost a podpis
         run: |
@@ -186,11 +212,13 @@ jobs:
           PLIST
           cat "$RUNNER_TEMP/ExportOptions.plist"
 
-      # Číslo buildu bere pořadí běhu. TestFlight odmítne nahrát dvakrát
-      # stejné číslo, takže napevno zapsaná jednička z pubspec.yaml by
-      # prošla jen jednou.
+      # TestFlight odmítne nahrát dvakrát stejné číslo, takže napevno
+      # zapsaná jednička z pubspec.yaml by prošla jen jednou. Odkud se
+      # číslo bere, viz POSUN_BUILDU nahoře.
       - name: Přeložení Flutteru
-        run: flutter build ios --release --no-codesign --build-number=${{ github.run_number }}
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-number=${{ needs.kontrola.outputs.cislo_buildu }}
 
       # Podpis se nesmí předávat přes příkazovou řádku xcodebuildu –
       # ta má nejvyšší prioritu a platí pro všechny cíle ve workspace,
@@ -231,7 +259,7 @@ jobs:
       # takže by workflow zůstal zelený. Proto kontrola tady.
       - name: Kontrola čísla buildu
         env:
-          OCEKAVANE: ${{ github.run_number }}
+          OCEKAVANE: ${{ needs.kontrola.outputs.cislo_buildu }}
         run: |
           set -euo pipefail
           PLIST="$RUNNER_TEMP/Runner.xcarchive/Products/Applications/Runner.app/Info.plist"
