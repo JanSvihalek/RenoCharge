@@ -10,6 +10,7 @@ import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../auth/application/auth_providery.dart';
 import '../../auth/domain/uzivatel.dart';
+import '../../nabijeni/application/zaloha_fotek.dart';
 import '../../vozidla/presentation/sekce_vozidel.dart';
 import '../application/nastaveni_controller.dart';
 
@@ -88,6 +89,24 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
     }
   }
 
+  Future<void> _prepniZalohu(bool zapnuto) async {
+    final povedlo = await ref
+        .read(zalohaControllerProvider.notifier)
+        .nastav(zapnuto: zapnuto);
+    if (!mounted) return;
+    if (povedlo) {
+      ukazInfo(
+        context,
+        zapnuto
+            ? 'Vyfocená počítadla se budou ukládat i do galerie.'
+            : 'Kopie do galerie se přestanou ukládat.',
+      );
+      return;
+    }
+    final chyba = ref.read(zalohaControllerProvider).error;
+    if (chyba != null) ukazChybu(context, chyba);
+  }
+
   /// Odhlášení se ptá na potvrzení. Není destruktivní – žádná data
   /// nezmizí – ale zpátky se člověk dostane jen s heslem, které u sebe
   /// v terénu mít nemusí. Jedno klepnutí navíc je levnější než to.
@@ -115,6 +134,7 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
     final profil = ref.watch(profilProvider).value;
     final ukladani = ref.watch(cenaControllerProvider).isLoading;
     final odhlasovani = ref.watch(prihlaseniControllerProvider).isLoading;
+    final zalohovani = ref.watch(zalohaControllerProvider).isLoading;
     _predvyplnZProfilu(profil);
 
     return ListView(
@@ -175,6 +195,26 @@ class _NastaveniObrazovkaState extends ConsumerState<NastaveniObrazovka> {
                   onTap: ukladani ? null : _smaz,
                 ),
             ],
+          ),
+        ),
+
+        const NadpisSekce('Fotografie'),
+        Karta(
+          padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+          child: SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: profil?.zalohovatFotky ?? false,
+            onChanged: zalohovani ? null : _prepniZalohu,
+            title: Text(
+              'Ukládat kopie do galerie',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            subtitle: Text(
+              'Vyfocená počítadla nabíječky i elektroměrů se uloží také '
+              'do telefonu, do albumu $albumZaloh. Aplikace je odtud '
+              'nikdy nečte – je to záloha pro vás.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ),
         ),
 

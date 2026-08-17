@@ -77,4 +77,18 @@ class UzivateleRepository {
       throw AppChyba.zFirebase(chyba);
     }
   }
+
+  /// Přepne ukládání kopií vyfocených počítadel do galerie telefonu.
+  Future<void> nastavZalohovaniFotek({
+    required String uid,
+    required bool zalohovat,
+  }) async {
+    try {
+      await _ref(
+        uid,
+      ).set({'zalohovat_fotky': zalohovat}, SetOptions(merge: true));
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
 }

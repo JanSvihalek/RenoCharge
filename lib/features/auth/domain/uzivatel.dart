@@ -44,6 +44,7 @@ class Uzivatel {
     this.onboardingAt,
     this.aktivniNabijeniId,
     this.cenaZaKwh,
+    this.zalohovatFotky = false,
     this.role = Role.uzivatel,
   });
 
@@ -73,6 +74,13 @@ class Uzivatel {
   /// PDF reportu se nedostane. `null`, dokud si sazbu nikdo nezadal;
   /// v tom případě aplikace o penězích nemluví vůbec.
   final double? cenaZaKwh;
+
+  /// Ukládat kopie vyfocených počítadel i do galerie telefonu.
+  ///
+  /// Záloha pro uživatele, ne pro aplikaci – ta si fotky drží ve Storage
+  /// a z galerie je nikdy nečte. Výchozí je vypnuto: cizí snímky
+  /// v galerii jsou nezvyklé a člověk o ně má požádat sám.
+  final bool zalohovatFotky;
 
   final Role role;
 
@@ -109,6 +117,7 @@ class Uzivatel {
       onboardingAt: (data['onboarding_at'] as Timestamp?)?.toDate(),
       aktivniNabijeniId: data['aktivni_nabijeni_id'] as String?,
       cenaZaKwh: (data['cena_za_kwh'] as num?)?.toDouble(),
+      zalohovatFotky: data['zalohovat_fotky'] as bool? ?? false,
       role: Role.zKlice(data['role'] as String?),
     );
   }

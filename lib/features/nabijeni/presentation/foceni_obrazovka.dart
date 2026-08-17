@@ -10,8 +10,10 @@ import '../../../common/motiv/motiv.dart';
 import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/tlacitka.dart';
+import '../../auth/application/auth_providery.dart';
 import '../application/foto_sluzba.dart';
 import '../application/ocr_sluzba.dart';
+import '../application/zaloha_fotek.dart';
 import '../domain/porizena_fotografie.dart';
 import 'widgety/puvod_fotky.dart';
 
@@ -251,7 +253,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
     });
   }
 
-  void _potvrd() {
+  Future<void> _potvrd() async {
     final foto = _foto;
     if (foto == null) return;
     final hodnota = Format.parsujKwh(_pole.text);
@@ -271,7 +273,37 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
       );
       return;
     }
+
+    await _zalohuj(foto);
+    if (!mounted) return;
     Navigator.of(context).pop(VysledekFoceni(hodnota: hodnota, foto: foto));
+  }
+
+  /// Kopie do galerie, pokud si ji uživatel zapnul v nastavení.
+  ///
+  /// Ukládá se **při potvrzení**, ne při stisku spouště: zahozené pokusy
+  /// tak v galerii neskončí, a zároveň je kopie na disku dřív, než se
+  /// snímek začne nahrávat – takže funguje i jako záloha proti spadlému
+  /// nahrávání.
+  ///
+  /// Neúspěch záznam nezdrží. Kopie do galerie je pohodlí, kdežto bez
+  /// fotky ve Storage nemá záznam smysl – proto se jen upozorní.
+  Future<void> _zalohuj(PorizenaFotografie foto) async {
+    final chce = ref.read(profilProvider).value?.zalohovatFotky ?? false;
+    if (!chce) return;
+    try {
+      await ref.read(zalohaFotekProvider).uloz(foto);
+    } catch (_) {
+      if (!mounted) return;
+      // Hlášku ukazuje ScaffoldMessenger nad celou aplikací, takže
+      // přežije zavření téhle obrazovky a uživatel si ji přečte
+      // na té pod ní.
+      ukazVarovani(
+        context,
+        'Kopii do galerie se nepodařilo uložit. Záznam se přesto '
+        'založí – zkontrolujte oprávnění k fotkám v nastavení telefonu.',
+      );
+    }
   }
 
   @override

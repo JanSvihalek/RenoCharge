@@ -71,6 +71,13 @@
 	<string>Main</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Fotoaparát slouží k vyfocení stavu počítadla na nabíječce před nabíjením a po něm.</string>
+	<!-- Jen pro zápis (Add), ne pro čtení: aplikace do galerie ukládá
+	     kopie vyfocených počítadel, když si to uživatel zapne
+	     v nastavení. Vybírání fotek z galerie jde přes systémový PHPicker,
+	     který oprávnění nepotřebuje – proto tu není klíč pro čtení.
+	     Bez tohohle klíče iOS aplikaci při prvním zápisu ukončí. -->
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Kopie vyfocených počítadel se ukládají do albumu RenoCharge, pokud si zálohování zapnete v nastavení aplikace.</string>
 	<!-- Přihlášení firemním účtem se vrací do aplikace přes vlastní URL
 	     schéma. U OIDC providerů (Microsoft) je to zakódované Firebase
 	     App ID iOS aplikace: dvojtečky nahrazené pomlčkami, s předponou

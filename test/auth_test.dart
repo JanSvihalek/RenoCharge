@@ -102,6 +102,24 @@ void main() {
     });
   });
 
+  group('záloha fotek do galerie', () {
+    // Cizí snímky v galerii jsou nezvyklé, takže se ukládat začnou
+    // teprve když si o to člověk řekne. Chybějící pole proto znamená ne.
+    test('bez pole v profilu je vypnutá', () {
+      expect(_uzivatel('Jan').zalohovatFotky, isFalse);
+    });
+
+    test('zapnutá se drží', () {
+      const profil = Uzivatel(
+        uid: 'u1',
+        jmeno: 'Jan',
+        email: 'jan@firma.cz',
+        zalohovatFotky: true,
+      );
+      expect(profil.zalohovatFotky, isTrue);
+    });
+  });
+
   group('role', () {
     // Roli nastavuje výhradně správce v konzoli. Chybějící pole proto
     // nesmí znamenat nic jiného než běžného uživatele.

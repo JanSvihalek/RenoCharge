@@ -71,7 +71,8 @@ service cloud.firestore {
       function povolenaPole() {
         return nova().keys().hasOnly([
           'jmeno', 'email', 'osobni_cislo', 'vytvoreno_at',
-          'onboarding_at', 'aktivni_nabijeni_id', 'cena_za_kwh', 'role'
+          'onboarding_at', 'aktivni_nabijeni_id', 'cena_za_kwh',
+          'zalohovat_fotky', 'role'
         ])
         && nova().jmeno is string
         && nova().jmeno.size() <= 80
@@ -87,7 +88,11 @@ service cloud.firestore {
             || nova().cena_za_kwh == null
             || (nova().cena_za_kwh is number
                 && nova().cena_za_kwh > 0
-                && nova().cena_za_kwh < 1000));
+                && nova().cena_za_kwh < 1000))
+        // Kopie fotek do galerie telefonu. Aplikace na tom nic nestaví,
+        // je to volba uživatele – hlídá se jen typ.
+        && (!nova().keys().hasAny(['zalohovat_fotky'])
+            || nova().zalohovat_fotky is bool);
       }
 
       // Role rozhoduje o tom, co uživatel v aplikaci smí, takže si ji
