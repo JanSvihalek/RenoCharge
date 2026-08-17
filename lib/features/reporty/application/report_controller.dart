@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../common/chyby.dart';
 import '../../../common/formatovani.dart';
@@ -17,6 +20,7 @@ import '../../vozidla/application/vozidla_providery.dart';
 import '../domain/report.dart';
 import 'exporty_providery.dart';
 import 'report_pdf.dart';
+import 'report_xlsx.dart';
 import 'zmenseni_fotky.dart';
 
 /// Průběh vytváření reportu. Stahování fotek je jediná pomalá část,
@@ -202,6 +206,75 @@ class ReportController extends Notifier<StavReportu> {
     return polozky;
   }
 
+  /// Tabulka nabíjení do XLSX: datum, vozidlo, počáteční a koncový stav,
+  /// spotřeba a součet. Bez fotek – kdo je chce, vezme si PDF.
+  ///
+  /// Vrací počet nabíjení v tabulce, nebo `null` při chybě.
+  Future<int?> vytvorTabulku({required Obdobi obdobi}) async {
+    if (probiha) return null;
+
+    final uid = ref.read(uidProvider);
+    final profil = ref.read(profilProvider).value;
+    if (uid == null || profil == null) {
+      state = const ReportChyba(NeniPrihlasen());
+      return null;
+    }
+
+    try {
+      state = const ReportNacitaZaznamy();
+      final relace = await ref
+          .read(nabijeniRepositoryProvider)
+          .nactiZaObdobi(uid: uid, od: obdobi.od, doKonce: obdobi.doExkluzivne);
+
+      final polozky = await _slozPolozky(relace, sFotkami: false);
+
+      state = const ReportSestavuje();
+      final bajty = ReportXlsx.sestav(
+        PodkladReportu(
+          jmeno: profil.jmeno,
+          osobniCislo: profil.osobniCislo,
+          obdobi: obdobi,
+          polozky: polozky,
+          vytvorenoAt: DateTime.now(),
+        ),
+      );
+
+      // Sdílí se přes share_plus, ne přes Printing.sharePdf – ten má na
+      // Androidu natvrdo typ application/pdf a tabulka by odešla
+      // označená jako PDF.
+      final soubor = File(
+        '${(await getTemporaryDirectory()).path}/'
+        '${nazevSouboru(profil.jmeno, obdobi, pripona: 'xlsx')}',
+      );
+      await soubor.writeAsBytes(bajty, flush: true);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(soubor.path, mimeType: _mimeXlsx)],
+          subject:
+              'Nabíjení ${Format.datum(obdobi.od)} – '
+              '${Format.datum(obdobi.doVcetne)}',
+        ),
+      );
+
+      _zapisStopu(
+        uid: uid,
+        obdobi: obdobi,
+        pocet: polozky.length,
+        sFotkami: false,
+      );
+
+      state = const ReportPripraven();
+      return polozky.length;
+    } catch (chyba) {
+      state = ReportChyba(AppChyba.zFirebase(chyba));
+      return null;
+    }
+  }
+
+  static const _mimeXlsx =
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
   /// Report jednoho elektroměru. Sdílí stav i průběh s reportem
   /// nabíjení – pro uživatele je to tatáž operace, jen nad jinými daty.
   Future<int?> vytvorProElektromer({
@@ -321,6 +394,7 @@ class ReportController extends Notifier<StavReportu> {
     String jmeno,
     Obdobi obdobi, {
     String predpona = 'report-nabijeni',
+    String pripona = 'pdf',
   }) {
     final kdo = bezDiakritiky(
       jmeno,
@@ -328,7 +402,7 @@ class ReportController extends Notifier<StavReportu> {
     String den(DateTime d) =>
         '${d.year}-${_dvojciferne(d.month)}-${_dvojciferne(d.day)}';
     return '$predpona-$kdo-${den(obdobi.od)}-'
-        '${den(obdobi.doVcetne)}.pdf';
+        '${den(obdobi.doVcetne)}.$pripona';
   }
 
   static String _dvojciferne(int c) => c.toString().padLeft(2, '0');

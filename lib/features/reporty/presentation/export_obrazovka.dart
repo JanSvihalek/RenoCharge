@@ -29,9 +29,22 @@ class ExportObrazovka extends ConsumerStatefulWidget {
   ConsumerState<ExportObrazovka> createState() => _ExportObrazovkaState();
 }
 
+/// Co z exportu vypadne. Tabulka je jen u nabíjení – u elektroměru je
+/// zajímavý vývoj spotřeby s fotkami, ne sloupec čísel do Excelu.
+enum _Format {
+  pdf('PDF', 'Přehled se souhrnem, volitelně s fotkami počítadla.'),
+  xlsx('Excel', 'Tabulka: datum, vozidlo, stavy počítadla a součet.');
+
+  const _Format(this.popisek, this.popis);
+
+  final String popisek;
+  final String popis;
+}
+
 class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
   Obdobi _obdobi = Obdobi.tentoMesic();
   bool _sFotkami = true;
+  _Format _format = _Format.pdf;
 
   Future<void> _vyberObdobi() async {
     final ted = DateTime.now();
@@ -52,13 +65,15 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
     final rizeni = ref.read(reportControllerProvider.notifier);
     final elektromer = widget.elektromer;
 
-    final pocet = elektromer == null
-        ? await rizeni.vytvorASdilej(obdobi: _obdobi, sFotkami: _sFotkami)
-        : await rizeni.vytvorProElektromer(
-            elektromer: elektromer,
-            obdobi: _obdobi,
-            sFotkami: _sFotkami,
-          );
+    final pocet = switch ((elektromer, _format)) {
+      (final e?, _) => await rizeni.vytvorProElektromer(
+        elektromer: e,
+        obdobi: _obdobi,
+        sFotkami: _sFotkami,
+      ),
+      (_, _Format.xlsx) => await rizeni.vytvorTabulku(obdobi: _obdobi),
+      _ => await rizeni.vytvorASdilej(obdobi: _obdobi, sFotkami: _sFotkami),
+    };
     if (!mounted || pocet == null) return;
 
     if (pocet == 0) {
@@ -147,27 +162,41 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                     popisek: 'Zvolit jiné období',
                     onTap: probiha ? null : _vyberObdobi,
                   ),
-                  const NadpisSekce('Obsah'),
-                  Karta(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-                    child: SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: _sFotkami,
-                      onChanged: probiha
+                  if (widget.elektromer == null) ...[
+                    const NadpisSekce('Formát'),
+                    _VolbaFormatu(
+                      vybrany: _format,
+                      onZmena: probiha
                           ? null
-                          : (zapnuto) => setState(() => _sFotkami = zapnuto),
-                      title: Text(
-                        'Včetně fotografií počítadla',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      subtitle: Text(
-                        'Fotky počítadla se do PDF vloží zmenšené, aby se '
-                        'report dal poslat mailem. Bez nich je soubor '
-                        'o poznání menší a vytvoří se hned.',
-                        style: Theme.of(context).textTheme.bodySmall,
+                          : (novy) => setState(() => _format = novy),
+                    ),
+                  ],
+
+                  // Fotky jsou jen v PDF. Do tabulky nepatří a přepínač,
+                  // který na výsledek nemá vliv, jen mate.
+                  if (_format == _Format.pdf) ...[
+                    const NadpisSekce('Obsah'),
+                    Karta(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+                      child: SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _sFotkami,
+                        onChanged: probiha
+                            ? null
+                            : (zapnuto) => setState(() => _sFotkami = zapnuto),
+                        title: Text(
+                          'Včetně fotografií počítadla',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        subtitle: Text(
+                          'Fotky počítadla se do PDF vloží zmenšené, aby se '
+                          'report dal poslat mailem. Bez nich je soubor '
+                          'o poznání menší a vytvoří se hned.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                   if (stav case ReportChyba(:final chyba)) ...[
                     const SizedBox(height: 18),
                     ChybovyBlok(zprava: chyba.zprava),
@@ -177,10 +206,55 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                 ],
               ),
             ),
-            _Pata(probiha: probiha, onVytvorit: _vytvor),
+            _Pata(
+              probiha: probiha,
+              onVytvorit: _vytvor,
+              popisek: widget.elektromer == null && _format == _Format.xlsx
+                  ? 'Vytvořit tabulku'
+                  : 'Vytvořit PDF',
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Volba mezi PDF a tabulkou. Popis pod názvem schválně: „Excel" sám
+/// o sobě neřekne, že v něm nebudou fotky ani souhrn, jen řádky a součet.
+class _VolbaFormatu extends StatelessWidget {
+  const _VolbaFormatu({required this.vybrany, required this.onZmena});
+
+  final _Format vybrany;
+  final ValueChanged<_Format>? onZmena;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final format in _Format.values) ...[
+          if (format != _Format.values.first) const SizedBox(height: 10),
+          VolbaKarta(
+            vybrano: vybrany == format,
+            onTap: () => onZmena?.call(format),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  format.popisek,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  format.popis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -304,10 +378,15 @@ class _Prubeh extends StatelessWidget {
 }
 
 class _Pata extends StatelessWidget {
-  const _Pata({required this.probiha, required this.onVytvorit});
+  const _Pata({
+    required this.probiha,
+    required this.onVytvorit,
+    required this.popisek,
+  });
 
   final bool probiha;
   final VoidCallback onVytvorit;
+  final String popisek;
 
   @override
   Widget build(BuildContext context) {
@@ -321,7 +400,7 @@ class _Pata extends StatelessWidget {
         top: false,
         minimum: const EdgeInsets.fromLTRB(20, 12, 20, 18),
         child: PrimarniTlacitko(
-          popisek: 'Vytvořit PDF',
+          popisek: popisek,
           nacita: probiha,
           onTap: probiha ? null : onVytvorit,
         ),

@@ -328,8 +328,14 @@ za období odečet nemají.
 Na kontrolu spotřeby je klíčová právě **ta změna v procentech** – skokový
 nárůst je ten signál, kvůli kterému se to celé čte.
 
-Vedle PDF **i CSV**. Kdo hlídá spotřebu, bude chtít data do Excelu; je to
-pár řádků kódu a posílá se stejnou cestou jako PDF.
+Vedle PDF **i tabulka do Excelu**. Kdo hlídá spotřebu, bude chtít data
+k dopočítání. U nabíjení už XLSX je (datum, vozidlo, stavy počítadla,
+součet), u elektroměrů zatím ne.
+
+XLSX se skládá ručně, ne knihovnou: jediný balíček, který ho umí
+zapisovat, stojí na `archive 3`, zatímco `image` (zmenšování fotek
+a snímky v PDF) potřebuje `archive 4`. Formát je ZIP s pár XML soubory,
+takže vlastní zapisovač vyšel levněji než výměna knihovny na fotky.
 
 ## Mimo rozsah
 
