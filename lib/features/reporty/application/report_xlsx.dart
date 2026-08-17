@@ -194,12 +194,18 @@ abstract final class ReportXlsx {
       '<sheets><sheet name="Nabíjení" sheetId="1" r:id="rId1"/></sheets>'
       '</workbook>';
 
+  /// Sešit musí na styly **odkazovat**. Bez téhle vazby soubor
+  /// `styles.xml` v archivu leží nevyužitý, Excel ho vůbec nenačte
+  /// a všechny odkazy na styl v buňkách spadnou na výchozí formát –
+  /// datum se pak ukáže jako pořadové číslo dne.
   static const _vztahySesitu =
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/'
       'officeDocument/2006/relationships/worksheet" '
       'Target="worksheets/sheet1.xml"/>'
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/'
+      'officeDocument/2006/relationships/styles" Target="styles.xml"/>'
       '</Relationships>';
 
   /// Vlastní formáty začínají od 164, nižší čísla má Excel obsazená.

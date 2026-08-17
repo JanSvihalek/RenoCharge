@@ -81,6 +81,34 @@ void main() {
       });
     });
 
+    // Samotná přítomnost styles.xml nestačí. Bez odkazu ze sešitu ho
+    // Excel nenačte, odkazy na styl v buňkách spadnou na výchozí formát
+    // a datum se ukáže jako pořadové číslo dne.
+    test('sešit odkazuje na list i na styly', () {
+      final rels = _cast(
+        ReportXlsx.sestav(_podklad(dveNabijeni)),
+        'xl/_rels/workbook.xml.rels',
+      );
+
+      expect(rels, contains('Target="worksheets/sheet1.xml"'));
+      expect(rels, contains('Target="styles.xml"'));
+      expect(rels, contains('relationships/styles'));
+    });
+
+    test('buňka s datem nese styl s datovým formátem', () {
+      final styly = _cast(
+        ReportXlsx.sestav(_podklad(dveNabijeni)),
+        'xl/styles.xml',
+      );
+      final list = _cast(
+        ReportXlsx.sestav(_podklad(dveNabijeni)),
+        'xl/worksheets/sheet1.xml',
+      );
+
+      expect(styly, contains('numFmtId="165"'), reason: 'formát data');
+      expect(list, contains('s="4"'), reason: 'datová buňka na něj odkazuje');
+    });
+
     test('začíná signaturou ZIP', () {
       final bajty = ReportXlsx.sestav(_podklad(dveNabijeni));
       expect(bajty.sublist(0, 2), [0x50, 0x4B]);
