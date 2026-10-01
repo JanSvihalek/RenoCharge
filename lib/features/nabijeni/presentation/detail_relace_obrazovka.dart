@@ -10,8 +10,9 @@ import '../domain/relace.dart';
 import 'prohlizec_fotky.dart';
 import 'widgety/relace_widgety.dart';
 
-/// Detail jedné relace včetně obou fotek počítadla.
-/// Ukončený záznam je jen ke čtení – měnit se už nedá.
+/// Detail jedné relace včetně obou fotek počítadla – u nabíječky bez
+/// počítadla jediné fotky displeje. Ukončený záznam je jen ke čtení,
+/// měnit se už nedá.
 class DetailRelaceObrazovka extends ConsumerWidget {
   const DetailRelaceObrazovka({super.key, required this.relaceId});
 
@@ -76,23 +77,39 @@ class _Obsah extends ConsumerWidget {
       children: [
         Align(alignment: Alignment.centerLeft, child: OdznakStavu(relace.stav)),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _Nahled(
-                popisek: 'Před nabíjením',
-                cesta: relace.fotoStart.path,
+        if (relace.bezPocitadla)
+          // Jediná fotka – stejně velká jako jedna z dvojice, ať se
+          // v detailu neroztahuje přes celou šířku.
+          Row(
+            children: [
+              Expanded(
+                child: _Nahled(
+                  popisek: 'Nabitá energie',
+                  cesta: relace.fotoEnd?.path,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _Nahled(
-                popisek: 'Po nabíjení',
-                cesta: relace.fotoEnd?.path,
+              const SizedBox(width: 12),
+              const Spacer(),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: _Nahled(
+                  popisek: 'Před nabíjením',
+                  cesta: relace.fotoStart?.path,
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _Nahled(
+                  popisek: 'Po nabíjení',
+                  cesta: relace.fotoEnd?.path,
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 16),
         Karta(
           // Blok se spotřebou má sahat až k okrajům karty, proto
@@ -109,24 +126,36 @@ class _Obsah extends ConsumerWidget {
                       popisek: 'Datum',
                       hodnota: Format.datum(relace.zahajeno),
                     ),
-                    RadekDat(
-                      popisek: 'Zahájeno / ukončeno',
-                      hodnota: Format.rozsahCasu(
-                        relace.zahajeno,
-                        relace.ukonceno,
+                    if (relace.bezPocitadla) ...[
+                      // Začátek nabíjení aplikace nezná – je to jen čas
+                      // fotky displeje po nabití.
+                      RadekDat(
+                        popisek: 'Vyfoceno',
+                        hodnota: Format.cas(relace.zahajeno),
                       ),
-                    ),
-                    RadekDat(
-                      popisek: 'Počáteční stav',
-                      hodnota: '${Format.kwh(relace.kwhStart)} kWh',
-                    ),
-                    RadekDat(
-                      popisek: 'Koncový stav',
-                      hodnota: relace.kwhEnd == null
-                          ? '–'
-                          : '${Format.kwh(relace.kwhEnd!)} kWh',
-                      posledni: true,
-                    ),
+                      const RadekDat(
+                        popisek: 'Nabíječka',
+                        hodnota: 'bez počítadla',
+                        posledni: true,
+                      ),
+                    ] else ...[
+                      RadekDat(
+                        popisek: 'Zahájeno / ukončeno',
+                        hodnota: Format.rozsahCasu(
+                          relace.zahajeno,
+                          relace.ukonceno,
+                        ),
+                      ),
+                      RadekDat(
+                        popisek: 'Počáteční stav',
+                        hodnota: _kwhNeboPomlcka(relace.kwhStart),
+                      ),
+                      RadekDat(
+                        popisek: 'Koncový stav',
+                        hodnota: _kwhNeboPomlcka(relace.kwhEnd),
+                        posledni: true,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -151,6 +180,9 @@ class _Obsah extends ConsumerWidget {
     );
   }
 }
+
+String _kwhNeboPomlcka(double? kwh) =>
+    kwh == null ? '–' : '${Format.kwh(kwh)} kWh';
 
 class _OdznakLupy extends StatelessWidget {
   const _OdznakLupy();

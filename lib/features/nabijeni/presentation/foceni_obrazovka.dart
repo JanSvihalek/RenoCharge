@@ -23,9 +23,25 @@ enum RezimFoceni {
     'Vyfoťte počítadlo po nabití',
     'Koncový stav musí být vyšší než počáteční',
   ),
-  odecet('Vyfoťte stav elektroměru', 'Nový stav musí být vyšší než minulý');
+  odecet('Vyfoťte stav elektroměru', 'Nový stav musí být vyšší než minulý'),
 
-  const RezimFoceni(this.titulek, this.chybaMinima);
+  /// Nabíječka bez počítadla: displej ukazuje rovnou energii nabitou
+  /// za tohle nabíjení, takže se zadává výsledek, ne stav.
+  primo(
+    'Vyfoťte nabitou energii',
+    'Nabitá energie musí být vyšší než nula',
+    coSeZadava: 'nabitou energii',
+    priklad: '27,49',
+    potvrzeni: 'Potvrdit hodnotu',
+  );
+
+  const RezimFoceni(
+    this.titulek,
+    this.chybaMinima, {
+    this.coSeZadava = 'stav počítadla',
+    this.priklad = '12486,7',
+    this.potvrzeni = 'Potvrdit stav',
+  });
 
   final String titulek;
 
@@ -33,6 +49,15 @@ enum RezimFoceni {
   /// U nabíjení je minimem počáteční stav relace, u elektroměru minulý
   /// odečet – text se proto liší.
   final String chybaMinima;
+
+  /// Co uživatel do pole píše – do hlášky o neplatném čísle.
+  final String coSeZadava;
+
+  /// Ukázková hodnota do nápovědy pole. Stav počítadla a nabitá energie
+  /// se liší o několik řádů a příklad má odpovídat tomu, co je na displeji.
+  final String priklad;
+
+  final String potvrzeni;
 }
 
 /// Potvrzená fotka i hodnota, se kterou dál pracuje volající obrazovka.
@@ -260,16 +285,19 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
     if (hodnota == null) {
       setState(
         () => _chyba =
-            'Zadejte prosím stav počítadla jako číslo, například 12486,7.',
+            'Zadejte prosím ${widget.rezim.coSeZadava} jako číslo, '
+            'například ${widget.rezim.priklad}.',
       );
       return;
     }
     final start = widget.kwhStart;
     if (start != null && hodnota <= start) {
+      // U nuly se mez nevypisuje – „vyšší než nula (0,00 kWh)" je
+      // totéž dvakrát.
+      final mez = start == 0 ? '' : ' (${Format.kwh(start)} kWh)';
       setState(
         () => _chyba =
-            '${widget.rezim.chybaMinima} '
-            '(${Format.kwh(start)} kWh). Zkontrolujte prosím hodnotu.',
+            '${widget.rezim.chybaMinima}$mez. Zkontrolujte prosím hodnotu.',
       );
       return;
     }
@@ -454,7 +482,11 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
     PuvodFotky(_foto!),
     ?_chybovyText(),
     const SizedBox(height: 4),
-    PrimarniTlacitko(popisek: 'Potvrdit stav', vyska: 58, onTap: _potvrd),
+    PrimarniTlacitko(
+      popisek: widget.rezim.potvrzeni,
+      vyska: 58,
+      onTap: _potvrd,
+    ),
     OdkazoveTlacitko(popisek: 'Vyfotit znovu', onTap: _znovu),
     OdkazoveTlacitko(popisek: 'Vybrat jinou z galerie', onTap: _zGalerie),
   ];
@@ -493,7 +525,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
         _PoleHodnoty(
           pole: _pole,
           onZmena: _zahodChybu,
-          napoveda: 'např. 12486,7',
+          napoveda: 'např. ${widget.rezim.priklad}',
           automatickyFokus: true,
         ),
         ?_chybovyText(),

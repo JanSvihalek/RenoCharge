@@ -32,7 +32,9 @@ class RekapitulaceObrazovka extends ConsumerWidget {
     final b = context.barvy;
     final vozidlo = popisekVozidla(ref, relace);
     final stav = ref.watch(ukonceniControllerProvider);
-    final spotreba = kwhEnd - relace.kwhStart;
+    // Ukončuje se jen běžící relace a ta počáteční stav má vždycky.
+    final kwhStart = relace.kwhStart ?? 0;
+    final spotreba = kwhEnd - kwhStart;
     final doba = fotoEnd.porizenoAt.isAfter(relace.zahajeno)
         ? fotoEnd.porizenoAt.difference(relace.zahajeno)
         : DateTime.now().difference(relace.zahajeno);
@@ -67,7 +69,7 @@ class RekapitulaceObrazovka extends ConsumerWidget {
                               RadekDat(popisek: 'Vozidlo', hodnota: vozidlo),
                               RadekDat(
                                 popisek: 'Počáteční stav',
-                                hodnota: '${Format.kwh(relace.kwhStart)} kWh',
+                                hodnota: '${Format.kwh(kwhStart)} kWh',
                               ),
                               RadekDat(
                                 popisek: 'Koncový stav',

@@ -145,6 +145,35 @@ class NabijeniRepository {
     }
   }
 
+  /// Zapíše nabíjení z nabíječky bez počítadla – rovnou dokončené.
+  ///
+  /// Bez transakce a bez `aktivni_nabijeni_id`: záznam relaci neotevírá,
+  /// takže s pravidlem „nejvýš jedna otevřená" nemá co kolidovat.
+  Future<void> zapisPrimo({
+    required String relaceId,
+    required String uid,
+    required String spz,
+    required String vozidloId,
+    required double kwhNabito,
+    required FotoMetadata foto,
+  }) async {
+    try {
+      await _relace
+          .doc(relaceId)
+          .set(
+            Relace.mapaProPrimyZapis(
+              uid: uid,
+              spz: spz,
+              vozidloId: vozidloId,
+              kwhNabito: kwhNabito,
+              foto: foto,
+            ),
+          );
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
+
   /// Doplní koncové hodnoty a překlopí relaci do stavu `dokonceno`.
   ///
   /// Vyhodí [NeplatnyKoncovyStav], pokud koncový stav počítadla není
@@ -166,9 +195,10 @@ class NabijeniRepository {
         final relace = Relace.zDokumentu(snimek);
         if (relace.uid != uid) throw const NedostatecnaOpravneni();
         if (!relace.probiha) throw const RelaceJizUkoncena();
-        if (kwhEnd <= relace.kwhStart) {
-          throw NeplatnyKoncovyStav(relace.kwhStart);
-        }
+        // Běžící relace počáteční stav má vždycky – bez počítadla se
+        // relace neotevírá, zapisuje se rovnou dokončená.
+        final kwhStart = relace.kwhStart ?? 0;
+        if (kwhEnd <= kwhStart) throw NeplatnyKoncovyStav(kwhStart);
 
         tx.update(
           relaceRef,

@@ -192,7 +192,7 @@ class ReportController extends Notifier<StavReportu> {
     for (final r in relace) {
       // Sekvenčně schválně: dvacet paralelních stahování zahltí spojení
       // a ukazatel průběhu by skákal.
-      final start = await stahni(r.fotoStart.path);
+      final start = await stahni(r.fotoStart?.path);
       final konec = await stahni(r.fotoEnd?.path);
       polozky.add(
         PolozkaReportu(

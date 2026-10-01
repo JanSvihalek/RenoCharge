@@ -5,6 +5,8 @@ import '../../auth/application/auth_providery.dart';
 import '../../vozidla/application/vozidla_providery.dart';
 import '../../vozidla/domain/vozidlo.dart';
 import '../data/foto_uloziste.dart';
+import '../data/nabijeni_repository.dart';
+import '../domain/foto_metadata.dart';
 import '../domain/porizena_fotografie.dart';
 import 'nabijeni_providery.dart';
 
@@ -67,6 +69,51 @@ class ZahajeniController extends Notifier<ZahajeniStav> {
   Future<bool> zahaj({
     required double kwhStart,
     required PorizenaFotografie foto,
+  }) => _zapis(
+    typFoto: TypFoto.start,
+    foto: foto,
+    zapis: (repo, relaceId, uid, vozidlo, metadata) => repo.zahaj(
+      relaceId: relaceId,
+      uid: uid,
+      spz: vozidlo.spz,
+      vozidloId: vozidlo.id,
+      kwhStart: kwhStart,
+      fotoStart: metadata,
+    ),
+  );
+
+  /// Nabíječka bez počítadla: nahraje fotku displeje a zapíše rovnou
+  /// dokončené nabíjení s energií z displeje. Vrací `true` při úspěchu.
+  ///
+  /// Fotka jde na místo koncové (`end.jpg`) – je pořízená po nabití
+  /// a ukazuje výsledek, stejně jako koncová fotka počítadla.
+  Future<bool> zapisPrimo({
+    required double kwhNabito,
+    required PorizenaFotografie foto,
+  }) => _zapis(
+    typFoto: TypFoto.end,
+    foto: foto,
+    zapis: (repo, relaceId, uid, vozidlo, metadata) => repo.zapisPrimo(
+      relaceId: relaceId,
+      uid: uid,
+      spz: vozidlo.spz,
+      vozidloId: vozidlo.id,
+      kwhNabito: kwhNabito,
+      foto: metadata,
+    ),
+  );
+
+  Future<bool> _zapis({
+    required TypFoto typFoto,
+    required PorizenaFotografie foto,
+    required Future<void> Function(
+      NabijeniRepository repo,
+      String relaceId,
+      String uid,
+      Vozidlo vozidlo,
+      FotoMetadata metadata,
+    )
+    zapis,
   }) async {
     final volba = state;
     if (!volba.jeKompletni || volba.odesilani) return false;
@@ -100,26 +147,15 @@ class ZahajeniController extends Notifier<ZahajeniStav> {
 
     try {
       final metadata = await uloziste.nahraj(
-        cil: CilFotky.nabijeni(
-          uid: uid,
-          relaceId: relaceId,
-          typ: TypFoto.start,
-        ),
+        cil: CilFotky.nabijeni(uid: uid, relaceId: relaceId, typ: typFoto),
         foto: foto,
       );
       // Fotka je ve Storage dřív než záznam v Firestore, protože cesta
-      // se odvozuje z ID relace vygenerovaného dopředu. Když transakce
+      // se odvozuje z ID relace vygenerovaného dopředu. Když zápis
       // selže, snímek tam zůstane osiřelý – mazat ho nejde a schválně:
       // pravidla nedovolují smazat žádnou fotku nikomu, jinak by z důkazu
       // bylo jen přání. Jde o stovky kB a uklidí se to dávkově zvenčí.
-      await repo.zahaj(
-        relaceId: relaceId,
-        uid: uid,
-        spz: vozidlo.spz,
-        vozidloId: volba.vozidloId!,
-        kwhStart: kwhStart,
-        fotoStart: metadata,
-      );
+      await zapis(repo, relaceId, uid, vozidlo, metadata);
       state = _vychozi();
       return true;
     } catch (chyba) {

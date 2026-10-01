@@ -115,8 +115,9 @@ uzivatele/{uid}                jmeno, email, osobni_cislo?, vytvoreno_at,
                                cena_za_kwh?              ← viz Orientační cena
 uzivatele/{uid}/vozidla/{id}   spz, znacka_model?
 nabijeni/{id}                  uid, spz, vozidlo_id,
-                               kwh_start, kwh_end?, zahajeno, ukonceno?,
-                               foto_start{path,sha256,porizeno_at,zdroj},
+                               kwh_start?, kwh_end?, zahajeno, ukonceno?,
+                               kwh_nabito?,              ← viz Nabíječka bez počítadla
+                               foto_start?{path,sha256,porizeno_at,zdroj},
                                foto_end?,
                                stav: 'probiha'|'dokonceno',
                                vytvoreno_at, aktualizovano_at
@@ -133,6 +134,7 @@ Dva samostatné záznamy nikdy nevznikají.
 | Jeden uživatel = nejvýš jedna otevřená relace | transakce + `uzivatele/{uid}.aktivni_nabijeni_id`; UI místo výběru nabídne ukončení té rozdělané |
 | Fotka jde nahrát, ale ne přepsat ani smazat | `storage.rules`: `create` jen vlastníkovi, `update` i `delete` zakázané |
 | `kwh_end > kwh_start` | pole na obrazovce focení, transakce i `firestore.rules` |
+| Záznam bez počítadla vzniká jen dokončený, s `kwh_nabito > 0` a fotkou | pole na obrazovce focení a `firestore.rules` |
 | Po ukončení se záznamem nehne | `firestore.rules`: update jen ze stavu `probiha`, delete zakázaný |
 
 Pravidlo „nejvýš jedna" se dá porušit jen souběhem dvou telefonů, proto
@@ -225,6 +227,29 @@ akce se nedá vzít zpět a uživatel ji dělá v rukavicích.
 **Motiv se nikam neukládá.** Přepínač na domovské obrazovce platí do
 konce běhu aplikace, po restartu se aplikace zase řídí systémem – stejně
 jako prototyp. Trvalé uložení by znamenalo přidat `shared_preferences`.
+
+## Nabíječka bez počítadla
+
+Jedna nabíječka v areálu nemá počítadlo – displej ukazuje jen energii
+nabitou za jedno nabíjení. Pro ni je na domovské obrazovce pod hlavním
+tlačítkem odkaz **„Zapsat nabíjení bez počítadla"**: výběr vozidla,
+fotka displeje s nabitými kWh, potvrzení. Nic se nezahajuje.
+
+* **Záznam vzniká až po nabití, rovnou jako `dokonceno`.** Na začátku
+  není co odečíst, takže otevřená relace by jen čekala na jediné číslo.
+  Proto se na něj nevztahuje ani „nejvýš jedna otevřená relace" – zapsat
+  se dá i vedle běžícího nabíjení na jiné nabíječce.
+* **Nese `kwh_nabito`, ne vymyšlené stavy.** `kwh_start` / `kwh_end`
+  a `foto_start` zůstávají prázdné; zápis `0 → 27,49` by tvrdil odečet,
+  který nikdy neproběhl. Spotřeba je u takového záznamu přímo
+  `kwh_nabito`, jinak rozdíl stavů.
+* **Fotka je povinná** stejně jako u počítadla a leží na místě koncové
+  (`…/end.jpg`) – je pořízená po nabití a ukazuje výsledek.
+* **Doba nabíjení se nezná.** `zahajeno` i `ukonceno` jsou čas fotky
+  (kvůli řazení historie a období reportu), detail i PDF proto ukazují
+  jen čas, ne rozsah ani dobu.
+* V reportech mají takové řádky místo stavů pomlčku (PDF), resp. prázdné
+  buňky (Excel); spotřeba i součet je započítají normálně.
 
 ## Focení a OCR
 
@@ -340,5 +365,6 @@ Skutečné sazby, fakturace, export ISDOC, schvalování. Stav `schvaleno`
 umí aplikace jen zobrazit v odznaku – nastavuje se mimo ni. Přepočet
 podle vlastní sazby uživatele je odhad pro něj samotného, ne účtování;
 viz [Orientační cena](#orientační-cena).
-#   R e n o C h a r g e  
+#   R e n o C h a r g e 
+ 
  

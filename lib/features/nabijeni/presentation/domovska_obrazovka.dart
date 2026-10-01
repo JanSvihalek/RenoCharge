@@ -51,13 +51,20 @@ class DomovskaObrazovka extends ConsumerWidget {
         else if (relace != null)
           _KartaProbihajiciRelace(relace: relace)
         else
+          PrimarniTlacitko(
+            popisek: 'Zahájit nabíjení',
+            ikona: Icons.bolt,
+            vyska: Rozmery.tlacitkoVelke,
+            onTap: () => otevriZahajeni(context),
+          ),
+        // Nabíječka bez počítadla se zapisuje až po nabití a relaci
+        // neotevírá, proto je k dispozici i vedle běžícího nabíjení.
+        if (!otevrena.hasError)
           Padding(
-            padding: const EdgeInsets.only(bottom: 26),
-            child: PrimarniTlacitko(
-              popisek: 'Zahájit nabíjení',
-              ikona: Icons.bolt,
-              vyska: Rozmery.tlacitkoVelke,
-              onTap: () => otevriZahajeni(context),
+            padding: const EdgeInsets.only(bottom: 14),
+            child: OdkazoveTlacitko(
+              popisek: 'Zapsat nabíjení bez počítadla',
+              onTap: () => otevriPrimyZapis(context),
             ),
           ),
         switch (historie) {
@@ -169,7 +176,7 @@ class _KartaProbihajiciRelace extends ConsumerWidget {
     final b = context.barvy;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Karta(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
         child: Column(
@@ -194,7 +201,7 @@ class _KartaProbihajiciRelace extends ConsumerWidget {
                 Expanded(
                   child: _Udaj(
                     popisek: 'Počáteční stav',
-                    hodnota: '${Format.kwh(relace.kwhStart)} kWh',
+                    hodnota: '${Format.kwh(relace.kwhStart ?? 0)} kWh',
                   ),
                 ),
               ],

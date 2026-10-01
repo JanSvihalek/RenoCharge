@@ -199,6 +199,35 @@ void main() {
       final bajty = await (await ReportPdf.nacti()).sestav(podklad);
       expect(bajty.length, greaterThan(1000));
     });
+
+    // Bez počítadla chybí stavy i počáteční fotka – tabulka i oddíl
+    // s fotkami s tím musí počítat, ne spadnout na `null`.
+    test('nabíjení bez počítadla projde tabulkou i fotkami', () async {
+      final kdy = DateTime(2026, 7, 10, 17, 5);
+      final podklad = _podklad(
+        polozky: [
+          PolozkaReportu(
+            relace: Relace(
+              id: 'r3',
+              uid: 'u1',
+              spz: '2AB 3344',
+              vozidloId: 'v1',
+              zahajeno: kdy,
+              ukonceno: kdy,
+              kwhNabito: 18.3,
+              fotoEnd: _foto('nabijeni/u1/r3/end.jpg'),
+              stav: StavRelace.dokonceno,
+            ),
+            vozidlo: '2AB 3344',
+            fotoEnd: _jednobarevnyJpeg(),
+          ),
+        ],
+      );
+      expect(podklad.celkovaSpotreba, 18.3);
+
+      final bajty = await (await ReportPdf.nacti()).sestav(podklad);
+      expect(bajty.length, greaterThan(1000));
+    });
   });
 
   _testyReportuElektromeru();

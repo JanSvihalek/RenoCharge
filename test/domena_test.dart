@@ -53,6 +53,58 @@ void main() {
     });
   });
 
+  group('Relace z nabíječky bez počítadla', () {
+    final kdy = DateTime(2026, 8, 3, 18, 40);
+    final relace = Relace(
+      id: 'r2',
+      uid: 'u1',
+      spz: '2AB 3344',
+      vozidloId: 'v1',
+      zahajeno: kdy,
+      ukonceno: kdy,
+      kwhNabito: 27.49,
+      fotoEnd: _foto('nabijeni/u1/r2/end.jpg'),
+      stav: StavRelace.dokonceno,
+    );
+
+    test('spotřeba je nabitá energie z displeje', () {
+      expect(relace.bezPocitadla, isTrue);
+      expect(relace.spotreba, 27.49);
+    });
+
+    test('stavy počítadla nemá', () {
+      expect(relace.kwhStart, isNull);
+      expect(relace.kwhEnd, isNull);
+      expect(relace.fotoStart, isNull);
+    });
+
+    test('relace s počítadlem bez počítadla není', () {
+      expect(_relace(kwhEnd: 18369.8).bezPocitadla, isFalse);
+    });
+
+    // Pravidla Firestore přímý zápis pustí jen dokončený, s fotkou na
+    // místě koncové a bez stavů počítadla.
+    test('zapisuje se rovnou dokončená, s časem fotky jako začátkem '
+        'i koncem', () {
+      final foto = _foto('nabijeni/u1/r2/end.jpg');
+      final mapa = Relace.mapaProPrimyZapis(
+        uid: 'u1',
+        spz: '2AB 3344',
+        vozidloId: 'v1',
+        kwhNabito: 27.49,
+        foto: foto,
+      );
+
+      expect(mapa['stav'], 'dokonceno');
+      expect(mapa['kwh_nabito'], 27.49);
+      expect(mapa['kwh_start'], isNull);
+      expect(mapa['kwh_end'], isNull);
+      expect(mapa['foto_start'], isNull);
+      expect(mapa['foto_end'], foto.naMapu());
+      expect(mapa['zahajeno'], mapa['ukonceno']);
+    });
+  });
+
   group('StavRelace', () {
     test('zná klíče z Firestore', () {
       expect(StavRelace.zKlice('probiha'), StavRelace.probiha);

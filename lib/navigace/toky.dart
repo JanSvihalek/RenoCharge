@@ -17,6 +17,16 @@ void otevriZahajeni(BuildContext context) {
   ).push(MaterialPageRoute(builder: (_) => const ZahajeniObrazovka()));
 }
 
+/// Nabíječka bez počítadla: výběr vozidla a fotka displeje s nabitou
+/// energií. Záznam vzniká rovnou dokončený, bez zahájení.
+void otevriPrimyZapis(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const ZahajeniObrazovka(bezPocitadla: true),
+    ),
+  );
+}
+
 /// Ukončení běžící relace: nejdřív fotka počítadla, pak rekapitulace.
 /// Do Firestore se zapisuje až na rekapitulaci tlačítkem „Dokončit“.
 Future<void> otevriUkonceni(BuildContext context, Relace relace) =>

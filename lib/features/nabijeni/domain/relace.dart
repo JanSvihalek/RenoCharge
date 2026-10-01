@@ -27,18 +27,24 @@ enum StavRelace {
 /// Relace je **jeden dokument** po celou dobu svého života: vzniká při
 /// zahájení se stavem `probiha` a při ukončení se doplní koncové hodnoty.
 /// Nikdy nevznikají dva samostatné záznamy.
+///
+/// Výjimkou je nabíjení na nabíječce **bez počítadla**, která ukazuje
+/// jen energii nabitou za jedno nabíjení. Tam není co odečítat na začátku,
+/// takže záznam vzniká až po nabití, rovnou dokončený: nese [kwhNabito]
+/// a fotku displeje ve [fotoEnd], počáteční ani koncový stav nemá.
 class Relace {
   const Relace({
     required this.id,
     required this.uid,
     required this.spz,
     required this.vozidloId,
-    required this.kwhStart,
     required this.zahajeno,
-    required this.fotoStart,
     required this.stav,
+    this.kwhStart,
     this.kwhEnd,
+    this.kwhNabito,
     this.ukonceno,
+    this.fotoStart,
     this.fotoEnd,
     this.vytvorenoAt,
     this.aktualizovanoAt,
@@ -51,11 +57,17 @@ class Relace {
   /// čitelná i po smazání vozidla z profilu.
   final String spz;
   final String vozidloId;
-  final double kwhStart;
+
+  /// Stav počítadla na začátku. `null` jen u nabíječky bez počítadla –
+  /// běžící relace ho má vždycky.
+  final double? kwhStart;
   final double? kwhEnd;
+
+  /// Energie přečtená přímo z displeje nabíječky bez počítadla.
+  final double? kwhNabito;
   final DateTime zahajeno;
   final DateTime? ukonceno;
-  final FotoMetadata fotoStart;
+  final FotoMetadata? fotoStart;
   final FotoMetadata? fotoEnd;
   final StavRelace stav;
   final DateTime? vytvorenoAt;
@@ -63,8 +75,15 @@ class Relace {
 
   bool get probiha => stav == StavRelace.probiha;
 
+  /// Záznam z nabíječky bez počítadla – zadaný přímo nabitou energií.
+  bool get bezPocitadla => kwhNabito != null;
+
   /// Spotřeba v kWh, dokud relace běží, tak `null`.
-  double? get spotreba => kwhEnd == null ? null : kwhEnd! - kwhStart;
+  double? get spotreba {
+    if (kwhNabito case final nabito?) return nabito;
+    final (start, konec) = (kwhStart, kwhEnd);
+    return start == null || konec == null ? null : konec - start;
+  }
 
   /// Doba nabíjení – u běžící relace čas od zahájení do teď.
   Duration doba({DateTime? ted}) =>
@@ -72,22 +91,20 @@ class Relace {
 
   factory Relace.zDokumentu(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const <String, dynamic>{};
-    final fotoStart = FotoMetadata.zMapy(data['foto_start']);
     return Relace(
       id: doc.id,
       uid: data['uid'] as String? ?? '',
       spz: data['spz'] as String? ?? '',
       vozidloId: data['vozidlo_id'] as String? ?? '',
-      kwhStart: (data['kwh_start'] as num?)?.toDouble() ?? 0,
+      kwhStart: (data['kwh_start'] as num?)?.toDouble(),
       kwhEnd: (data['kwh_end'] as num?)?.toDouble(),
+      kwhNabito: (data['kwh_nabito'] as num?)?.toDouble(),
       zahajeno:
           (data['zahajeno'] as Timestamp?)?.toDate() ??
           (data['vytvoreno_at'] as Timestamp?)?.toDate() ??
           DateTime.now(),
       ukonceno: (data['ukonceno'] as Timestamp?)?.toDate(),
-      fotoStart:
-          fotoStart ??
-          FotoMetadata(path: '', sha256: '', porizenoAt: DateTime.now()),
+      fotoStart: FotoMetadata.zMapy(data['foto_start']),
       fotoEnd: FotoMetadata.zMapy(data['foto_end']),
       stav: StavRelace.zKlice(data['stav'] as String?),
       vytvorenoAt: (data['vytvoreno_at'] as Timestamp?)?.toDate(),
@@ -132,4 +149,33 @@ class Relace {
     'stav': StavRelace.dokonceno.klic,
     'aktualizovano_at': FieldValue.serverTimestamp(),
   };
+
+  /// Podklad pro záznam z nabíječky bez počítadla. Vzniká rovnou
+  /// dokončený – nemá začátek, který by se dal odečíst, jen výsledek.
+  /// Zahájení i ukončení je čas fotky displeje; skutečnou dobu nabíjení
+  /// aplikace nezná a netvrdí ji.
+  static Map<String, dynamic> mapaProPrimyZapis({
+    required String uid,
+    required String spz,
+    required String vozidloId,
+    required double kwhNabito,
+    required FotoMetadata foto,
+  }) {
+    final kdy = Timestamp.fromDate(foto.porizenoAt);
+    return {
+      'uid': uid,
+      'spz': spz,
+      'vozidlo_id': vozidloId,
+      'kwh_start': null,
+      'kwh_end': null,
+      'kwh_nabito': kwhNabito,
+      'zahajeno': kdy,
+      'ukonceno': kdy,
+      'foto_start': null,
+      'foto_end': foto.naMapu(),
+      'stav': StavRelace.dokonceno.klic,
+      'vytvoreno_at': FieldValue.serverTimestamp(),
+      'aktualizovano_at': FieldValue.serverTimestamp(),
+    };
+  }
 }

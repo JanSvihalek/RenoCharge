@@ -328,6 +328,26 @@ void main() {
       expect(skupina.pocetDokoncenych, 1);
     });
 
+    test('nabíjení bez počítadla přispěje nabitou energií', () {
+      final kdy = DateTime(2026, 8, 6, 17);
+      final skupina = seskupPoMesicich([
+        Relace(
+          id: 'primo',
+          uid: 'u1',
+          spz: '2AB 3344',
+          vozidloId: 'v1',
+          zahajeno: kdy,
+          ukonceno: kdy,
+          kwhNabito: 18.3,
+          stav: StavRelace.dokonceno,
+        ),
+        _relace(zahajeno: DateTime(2026, 8, 1), kwhStart: 200, kwhEnd: 225.72),
+      ]).single;
+
+      expect(skupina.celkemKwh, closeTo(18.3 + 25.72, 0.001));
+      expect(skupina.pocetDokoncenych, 2);
+    });
+
     test('měsíc jen s běžící relací má nulový součet', () {
       final skupina = seskupPoMesicich([
         _relace(zahajeno: DateTime(2026, 8, 4)),

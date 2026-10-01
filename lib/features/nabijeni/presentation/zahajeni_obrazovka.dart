@@ -16,13 +16,23 @@ import 'foceni_obrazovka.dart';
 
 /// Výběr vozidla. Stanice ani konektor se nezadávají – nabíječky v areálu
 /// zatím nejsou nijak označené, viz README.
+///
+/// Slouží i pro nabíječku bez počítadla ([bezPocitadla]). Tam se po
+/// výběru vozidla fotí displej s nabitou energií a záznam vzniká rovnou
+/// dokončený – relace se neotevírá.
 class ZahajeniObrazovka extends ConsumerWidget {
-  const ZahajeniObrazovka({super.key});
+  const ZahajeniObrazovka({super.key, this.bezPocitadla = false});
+
+  final bool bezPocitadla;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
-    final otevrena = ref.watch(otevrenaRelaceProvider).value;
+    // Záznam bez počítadla relaci neotevírá, takže mu rozdělané
+    // nabíjení nepřekáží.
+    final otevrena = bezPocitadla
+        ? null
+        : ref.watch(otevrenaRelaceProvider).value;
 
     return Scaffold(
       backgroundColor: b.bg,
@@ -31,13 +41,15 @@ class ZahajeniObrazovka extends ConsumerWidget {
         child: Column(
           children: [
             HlavickaToku(
-              titulek: 'Zahájení nabíjení',
+              titulek: bezPocitadla
+                  ? 'Nabíjení bez počítadla'
+                  : 'Zahájení nabíjení',
               onZpet: () => Navigator.of(context).pop(),
             ),
             Expanded(
               child: otevrena != null
                   ? _RozdelaneNabijeni(relace: otevrena)
-                  : const _Vyber(),
+                  : _Vyber(bezPocitadla: bezPocitadla),
             ),
           ],
         ),
@@ -84,7 +96,9 @@ class _RozdelaneNabijeni extends StatelessWidget {
 }
 
 class _Vyber extends ConsumerWidget {
-  const _Vyber();
+  const _Vyber({required this.bezPocitadla});
+
+  final bool bezPocitadla;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -103,6 +117,17 @@ class _Vyber extends ConsumerWidget {
               24,
             ),
             children: [
+              if (bezPocitadla) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Pro nabíječku, která místo počítadla ukazuje jen energii '
+                  'nabitou za jedno nabíjení. Zapisuje se až po nabití: '
+                  'vyfoťte displej s nabitými kWh.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.barvy.textDim,
+                  ),
+                ),
+              ],
               const NadpisSekce('Vozidlo'),
               switch (vozidla) {
                 AsyncError() => ChybovyBlok(
@@ -160,20 +185,33 @@ class _Vyber extends ConsumerWidget {
   Future<void> _naFotografii(BuildContext context, WidgetRef ref) async {
     final vysledek = await Navigator.of(context).push<VysledekFoceni>(
       MaterialPageRoute(
-        builder: (_) => const FoceniObrazovka(rezim: RezimFoceni.zahajeni),
+        builder: (_) => bezPocitadla
+            // Nula kWh nabitých není nabíjení, nejspíš špatně přečtený
+            // displej.
+            ? const FoceniObrazovka(rezim: RezimFoceni.primo, kwhStart: 0)
+            : const FoceniObrazovka(rezim: RezimFoceni.zahajeni),
         fullscreenDialog: true,
       ),
     );
     if (vysledek == null || !context.mounted) return;
 
-    final povedlo = await ref
-        .read(zahajeniControllerProvider.notifier)
-        .zahaj(kwhStart: vysledek.hodnota, foto: vysledek.foto);
+    final rizeni = ref.read(zahajeniControllerProvider.notifier);
+    final povedlo = bezPocitadla
+        ? await rizeni.zapisPrimo(
+            kwhNabito: vysledek.hodnota,
+            foto: vysledek.foto,
+          )
+        : await rizeni.zahaj(kwhStart: vysledek.hodnota, foto: vysledek.foto);
     if (!context.mounted) return;
 
     if (povedlo) {
       Navigator.of(context).pop();
-      ukazInfo(context, 'Nabíjení bylo zahájeno.');
+      ukazInfo(
+        context,
+        bezPocitadla
+            ? 'Nabíjení bylo uloženo do historie.'
+            : 'Nabíjení bylo zahájeno.',
+      );
     }
     // Chyba zůstává ve stavu a vykreslí se nad patou obrazovky.
   }

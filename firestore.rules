@@ -255,36 +255,65 @@ service cloud.firestore {
         return prihlasen() && stara().uid == ja();
       }
 
+      // Společné pro oba způsoby založení: kdo, jaké auto, kdy.
+      function zakladRelace() {
+        return nova().uid == ja()
+          && nova().keys().hasOnly([
+            'uid', 'spz', 'vozidlo_id',
+            'kwh_start', 'kwh_end', 'kwh_nabito', 'zahajeno', 'ukonceno',
+            'foto_start', 'foto_end', 'stav',
+            'vytvoreno_at', 'aktualizovano_at'
+          ])
+          && nova().keys().hasAll([
+            'uid', 'spz', 'vozidlo_id', 'zahajeno', 'stav'
+          ])
+          && nova().spz is string
+          && nova().spz.size() > 0
+          && nova().vozidlo_id is string
+          && nova().zahajeno is timestamp;
+      }
+
+      // Nabíječka s počítadlem: relace vzniká ve stavu 'probiha' a bez
+      // koncových hodnot – ty se doplní až při ukončení.
+      function zahajeniRelace() {
+        return nova().stav == 'probiha'
+          && nova().keys().hasAll(['kwh_start', 'foto_start'])
+          && nova().kwh_start is number
+          && nova().kwh_start >= 0
+          && platnaFoto(nova().foto_start)
+          && nova().get('kwh_end', null) == null
+          && nova().get('ukonceno', null) == null
+          && nova().get('foto_end', null) == null
+          && !nova().keys().hasAny(['kwh_nabito']);
+      }
+
+      // Nabíječka bez počítadla ukazuje jen energii nabitou za jedno
+      // nabíjení. Záznam proto vzniká až po nabití, rovnou dokončený –
+      // s fotkou displeje na místě koncové a bez stavů počítadla.
+      // Měnit ho pak nejde stejně jako ukončenou relaci (update vyžaduje
+      // stav 'probiha').
+      function primyZapis() {
+        return nova().stav == 'dokonceno'
+          && nova().keys().hasAll(['kwh_nabito', 'ukonceno', 'foto_end'])
+          && nova().kwh_nabito is number
+          && nova().kwh_nabito > 0
+          && nova().ukonceno is timestamp
+          && nova().ukonceno >= nova().zahajeno
+          && platnaFoto(nova().foto_end)
+          && nova().get('kwh_start', null) == null
+          && nova().get('kwh_end', null) == null
+          && nova().get('foto_start', null) == null;
+      }
+
       allow read: if mojeRelace();
 
-      // Založit lze výhradně relaci ve stavu 'probiha' a bez koncových
-      // hodnot – ty se doplní až při ukončení.
       allow create: if prihlasen()
-        && nova().uid == ja()
-        && nova().stav == 'probiha'
-        && nova().keys().hasOnly([
-          'uid', 'spz', 'vozidlo_id',
-          'kwh_start', 'kwh_end', 'zahajeno', 'ukonceno',
-          'foto_start', 'foto_end', 'stav',
-          'vytvoreno_at', 'aktualizovano_at'
-        ])
-        && nova().keys().hasAll([
-          'uid', 'spz', 'vozidlo_id',
-          'kwh_start', 'zahajeno', 'foto_start', 'stav'
-        ])
-        && nova().spz is string
-        && nova().spz.size() > 0
-        && nova().vozidlo_id is string
-        && nova().kwh_start is number
-        && nova().kwh_start >= 0
-        && nova().zahajeno is timestamp
-        && platnaFoto(nova().foto_start)
-        && nova().kwh_end == null
-        && nova().ukonceno == null
-        && nova().foto_end == null;
+        && zakladRelace()
+        && (zahajeniRelace() || primyZapis());
 
       // Jediná povolená změna je ukončení. Měnit se smí jen koncové
-      // hodnoty; uid ani kwh_start nikdy.
+      // hodnoty; uid ani kwh_start nikdy. Nabitou energii relace
+      // s počítadlem nedostane – spotřeba je u ní rozdíl stavů.
       allow update: if mojeRelace()
         && stara().stav == 'probiha'
         && nova().stav == 'dokonceno'
@@ -297,7 +326,8 @@ service cloud.firestore {
         && nova().kwh_end is number
         && nova().kwh_end > stara().kwh_start
         && nova().ukonceno is timestamp
-        && platnaFoto(nova().foto_end);
+        && platnaFoto(nova().foto_end)
+        && !nova().keys().hasAny(['kwh_nabito']);
 
       allow delete: if false;
     }

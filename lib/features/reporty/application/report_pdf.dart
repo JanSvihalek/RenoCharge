@@ -347,10 +347,17 @@ class ReportPdf {
         for (final p in podklad.polozky)
           [
             Format.datum(p.relace.zahajeno),
-            Format.rozsahCasu(p.relace.zahajeno, p.relace.ukonceno),
+            // U nabíječky bez počítadla je známý jen čas fotky po nabití,
+            // rozsah „08:15 – 08:15" by tvrdil nabíjení na nula minut.
+            if (p.relace.bezPocitadla)
+              Format.cas(p.relace.zahajeno)
+            else
+              Format.rozsahCasu(p.relace.zahajeno, p.relace.ukonceno),
             p.vozidlo,
-            Format.kwh(p.relace.kwhStart),
-            Format.kwh(p.relace.kwhEnd ?? 0),
+            // Pomlčka, ne nula: nabíječka bez počítadla stav nemá a nula
+            // by vypadala jako odečtená hodnota.
+            _kwhNeboPomlcka(p.relace.kwhStart),
+            _kwhNeboPomlcka(p.relace.kwhEnd),
             Format.kwh(p.relace.spotreba ?? 0),
           ],
       ],
@@ -399,7 +406,8 @@ class ReportPdf {
     ),
     pw.SizedBox(height: 2),
     pw.Text(
-      'Stav počítadla před nabíjením a po něm, tak jak ho uživatel vyfotil.',
+      'Stav počítadla před nabíjením a po něm, tak jak ho uživatel vyfotil. '
+      'U nabíječky bez počítadla displej s nabitou energií.',
       style: const pw.TextStyle(fontSize: 9, color: _seda),
     ),
     pw.SizedBox(height: 10),
@@ -423,19 +431,32 @@ class ReportPdf {
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Expanded(
-              child: _snimek(
-                'Začátek · ${Format.kwh(p.relace.kwhStart)} kWh',
-                p.fotoStart,
+            if (p.relace.bezPocitadla) ...[
+              // Jediný snímek na místě levého z dvojice, ať mají všechny
+              // fotky v reportu stejnou velikost.
+              pw.Expanded(
+                child: _snimek(
+                  'Nabito · ${Format.kwh(p.relace.spotreba ?? 0)} kWh',
+                  p.fotoEnd,
+                ),
               ),
-            ),
-            pw.SizedBox(width: 10),
-            pw.Expanded(
-              child: _snimek(
-                'Konec · ${Format.kwh(p.relace.kwhEnd ?? 0)} kWh',
-                p.fotoEnd,
+              pw.SizedBox(width: 10),
+              pw.Expanded(child: pw.SizedBox()),
+            ] else ...[
+              pw.Expanded(
+                child: _snimek(
+                  'Začátek · ${_kwhNeboPomlcka(p.relace.kwhStart)} kWh',
+                  p.fotoStart,
+                ),
               ),
-            ),
+              pw.SizedBox(width: 10),
+              pw.Expanded(
+                child: _snimek(
+                  'Konec · ${_kwhNeboPomlcka(p.relace.kwhEnd)} kWh',
+                  p.fotoEnd,
+                ),
+              ),
+            ],
           ],
         ),
       ],
@@ -473,3 +494,5 @@ class ReportPdf {
     ),
   );
 }
+
+String _kwhNeboPomlcka(double? kwh) => kwh == null ? '–' : Format.kwh(kwh);

@@ -31,9 +31,10 @@ class UkonceniController extends AsyncNotifier<void> {
     }
     // Stejná podmínka platí i v transakci; tady jde o rychlou zpětnou
     // vazbu, ať uživatel nečeká na nahrání fotky kvůli překlepu.
-    if (kwhEnd <= relace.kwhStart) {
+    final kwhStart = relace.kwhStart;
+    if (kwhStart != null && kwhEnd <= kwhStart) {
       state = AsyncValue.error(
-        NeplatnyKoncovyStav(relace.kwhStart),
+        NeplatnyKoncovyStav(kwhStart),
         StackTrace.current,
       );
       return false;

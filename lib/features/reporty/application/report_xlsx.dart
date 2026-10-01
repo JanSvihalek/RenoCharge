@@ -68,6 +68,8 @@ abstract final class ReportXlsx {
         ..write('<row r="$cislo">')
         ..write(_datum(_adresa(0, cislo), r.zahajeno))
         ..write(_text(_adresa(1, cislo), polozka.vozidlo))
+        // Nabíječka bez počítadla stavy nemá – buňky zůstanou prázdné,
+        // spotřeba ve sloupci E je i tak a součet ji započítá.
         ..write(_cislo(_adresa(2, cislo), r.kwhStart))
         ..write(_cislo(_adresa(3, cislo), r.kwhEnd))
         ..write(_cislo(_adresa(4, cislo), r.spotreba))

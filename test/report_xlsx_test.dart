@@ -183,6 +183,43 @@ void main() {
       expect(list, contains('<v>0.0</v>'));
     });
 
+    // Nabíječka bez počítadla stavy nemá. Nula by v tabulce vypadala
+    // jako odečtená hodnota, takže buňky zůstanou prázdné – spotřeba
+    // ale v řádku je a součet ji započítá.
+    test('nabíjení bez počítadla má prázdné stavy a spotřebu v součtu', () {
+      final kdy = DateTime(2026, 8, 25, 17, 5);
+      final list = _cast(
+        ReportXlsx.sestav(
+          _podklad([
+            ...dveNabijeni,
+            PolozkaReportu(
+              relace: Relace(
+                id: 'r3',
+                uid: 'u1',
+                spz: '2AB 3344',
+                vozidloId: 'v1',
+                zahajeno: kdy,
+                ukonceno: kdy,
+                kwhNabito: 18.3,
+                stav: StavRelace.dokonceno,
+              ),
+              vozidlo: 'Škoda Enyaq · 2AB 3344',
+            ),
+          ]),
+        ),
+        'xl/worksheets/sheet1.xml',
+      );
+
+      final radek = RegExp(
+        r'<row r="4">(.*?)</row>',
+      ).firstMatch(list)!.group(1)!;
+      expect(radek, isNot(contains('r="C4"')));
+      expect(radek, isNot(contains('r="D4"')));
+      expect(radek, contains('<v>18.3</v>'));
+      expect(list, contains('<f>SUM(E2:E4)</f>'));
+      expect(list, contains('<v>70.51</v>'), reason: '27,49 + 24,72 + 18,3');
+    });
+
     // Ampersand v názvu vozidla by rozbil XML a Excel by soubor odmítl.
     test('speciální znaky v názvu vozidla se ošetří', () {
       final list = _cast(
