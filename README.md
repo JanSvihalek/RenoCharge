@@ -49,6 +49,11 @@ konkrétní projekt.
    ```bash
    firebase deploy --only firestore:rules,firestore:indexes,storage
    ```
+   Projekt (`renocharge`) bere CLI z [.firebaserc](.firebaserc). Pro jiný
+   projekt se přidá `--project <id-projektu>`.
+
+   Pravidla nasaďte **dřív**, než se rozšíří nová verze aplikace – zápis,
+   který starší pravidla neznají, Firestore odmítne.
 
 ```bash
 flutter pub get
