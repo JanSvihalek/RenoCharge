@@ -44,9 +44,23 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
     super.dispose();
   }
 
-  void _naslo(NalezenyElektromer nalez) {
+  /// Kameru skener pustí **dřív, než se odejde**, a počká na to.
+  ///
+  /// Volající hned po návratu otevírá focení počítadla s vlastní kamerou.
+  /// Kdyby se skener zastavil až s koncem animace zavírání (tak to dělá
+  /// widget sám), zastavení na Androidu odpojí z CameraX všechno, co je
+  /// v tu chvíli navázané – tedy i kameru focení, které se mezitím
+  /// rozběhlo. Hledáček pak zamrzne na posledním snímku.
+  Future<void> _naslo(NalezenyElektromer nalez) async {
     if (_hotovo) return;
     setState(() => _hotovo = true);
+    try {
+      await _ovladac.stop();
+    } catch (_) {
+      // Nepovedené zastavení nesmí zablokovat nalezené místo – v horším
+      // případě kameru uvolní až zavření obrazovky, jako dřív.
+    }
+    if (!mounted) return;
     Navigator.of(context).pop(nalez);
   }
 
@@ -56,7 +70,10 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
       final obsah = kod.rawValue;
       if (obsah == null) continue;
       final nalez = najdiPodleQr(obsah, widget.elektromery);
-      if (nalez != null) return _naslo(nalez);
+      if (nalez != null) {
+        _naslo(nalez);
+        return;
+      }
     }
   }
 
