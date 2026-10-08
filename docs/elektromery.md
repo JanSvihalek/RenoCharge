@@ -337,6 +337,54 @@ zapisovat, stojí na `archive 3`, zatímco `image` (zmenšování fotek
 a snímky v PDF) potřebuje `archive 4`. Formát je ZIP s pár XML soubory,
 takže vlastní zapisovač vyšel levněji než výměna knihovny na fotky.
 
+## Druhy odběrných míst
+
+Evidence se rozšířila z elektroměrů na **odběrná místa** – v Brně se
+vedle elektřiny odečítá i plyn, klimatizace a nabíječky. Záložka se
+proto jmenuje *Odběrná místa*.
+
+| `druh` | V aplikaci | Jednotka |
+|---|---|---|
+| `elektrina` nebo chybí | Elektřina | kWh |
+| `plyn` | Plyn | m³ |
+| `klimatizace` | Klimatizace (elektroměr na jednotce) | kWh |
+| `nabijecka` | Nabíječky | kWh |
+
+* **Kolekce i třídy se nepřejmenovaly** (`elektromery`, `Elektromer`).
+  ID dokumentu je v nalepených QR kódech a přejmenování by znamenalo
+  migraci dat bez užitku pro uživatele. Dokument bez `druh` je
+  elektřina, takže stávající záznamy se nepřepisují.
+* **Druh se po založení nemění** – stejně jako pobočka. Plynoměr
+  a elektroměr v jedné místnosti jsou dvě místa a míchat m³ s kWh
+  v jedné řadě odečtů nedává smysl. Hlídají to i pravidla.
+* **Výrobní číslo je nepovinné.** Seznam od zadavatele čísla nemá
+  a místo se pozná podle QR. Číslo jde doplnit úpravou místa; bez něj
+  jen nefunguje záložní identifikace číslem ze štítku.
+* **Filtr podle druhu** v seznamu – údržbář obchází jeden druh naráz.
+  QR štítky se tisknou pro právě zobrazený druh. Skener ale hledá ve
+  všech místech pobočky: kdo naskenuje plynoměr s filtrem na elektřinu,
+  chce plynoměr.
+* Na štítku je místo čísla nahoře **umístění a druh** – „Servis" je
+  v Brně plynoměr, elektroměr, klimatizace i nabíječka.
+
+### Výchozí seznam míst
+
+Místa z tabulky zadavatele (Brno-Slatina: plyn 17, elektřina 23,
+klimatizace 18, nabíječky 18) jsou v kódu
+([vychozi_mista.dart](../lib/features/elektromery/domain/vychozi_mista.dart)).
+Servisní účet pro importní skript zadavatel odmítl, takže je zakládá
+přihlášená údržba z aplikace: dokud některé chybí, je v seznamu karta
+s tlačítkem *Založit N míst*.
+
+Místa mají **pevná ID** (`bsl-plyn-hp-ripska`), ne náhodná. Druhé
+spuštění tak doplní jen to, co napoprvé neprošlo, a přejmenované místo
+se nezaloží znovu pod starým názvem. Kdyby místo mezitím založil někdo
+jiný, zápis je pro pravidla úprava se změněným `vytvoreno_at` a odmítnou
+ho – přepsat cizí `posledni_odecet` se tím nedá.
+
+V tabulce bylo u elektřiny dvakrát „BDC, Moto" – podle zadavatele
+omylem, založí se jednou.
+
 ## Mimo rozsah
 
 Ceny a fakturace odečtů. Fronta nahrávání pro práci offline – signál je

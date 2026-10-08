@@ -1,9 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'druh_mista.dart';
 import 'odecet.dart';
 import 'pobocka.dart';
 
-/// Elektroměr v areálu – dokument `elektromery/{id}`.
+/// Odběrné místo v areálu – dokument `elektromery/{id}`.
+///
+/// Evidence začínala jen elektroměry, odtud název třídy i kolekce.
+/// Dnes nese i plyn, klimatizaci a nabíječky ([druh]). Kolekce se
+/// nepřejmenovala schválně: ID dokumentu je v nalepených QR kódech
+/// a přejmenování by znamenalo migraci dat bez užitku pro uživatele.
 ///
 /// Zakládá a upravuje ho výhradně údržba; ostatní ho jen vidí.
 class Elektromer {
@@ -12,6 +18,7 @@ class Elektromer {
     required this.pobockaKod,
     required this.cislo,
     required this.nazev,
+    this.druh = DruhMista.elektrina,
     this.aktivni = true,
     this.posledniOdecet,
     this.vytvorenoAt,
@@ -24,11 +31,18 @@ class Elektromer {
   /// pobočka z aplikace odebrala, elektroměry pod ní nesmí zmizet.
   final String pobockaKod;
 
-  /// Výrobní číslo ze štítku.
+  /// Výrobní číslo ze štítku. Prázdné, když ho zatím nikdo neopsal –
+  /// výchozí seznam míst čísla nemá a identifikace jde i přes QR.
   final String cislo;
 
-  /// Kde elektroměr je, například „Hala B – rozvaděč R3".
+  /// Kde měřidlo je, například „Hala B – rozvaděč R3".
   final String nazev;
+
+  /// Co se tu měří. Určuje jednotku odečtu. Po založení se nemění –
+  /// plynoměr a elektroměr na stejném místě jsou dvě odběrná místa.
+  final DruhMista druh;
+
+  bool get maCislo => cislo.isNotEmpty;
 
   /// Vyřazený elektroměr se z obchůzky ztratí, ale historie odečtů
   /// zůstane čitelná. Proto příznak, ne smazání.
@@ -47,9 +61,9 @@ class Elektromer {
   /// na „zbývá" a „hotovo".
   bool maOdecetZa(DateTime mesic) => posledniOdecet?.jeZMesice(mesic) ?? false;
 
-  /// Text, ve kterém se v seznamu hledá – číslo i umístění dohromady.
-  /// Při osmdesáti kusech je hledání podmínka použitelnosti.
-  String get hledanyText => '$cislo $nazev'.toLowerCase();
+  /// Text, ve kterém se v seznamu hledá – číslo, umístění i druh
+  /// dohromady. Při osmdesáti kusech je hledání podmínka použitelnosti.
+  String get hledanyText => '$cislo $nazev ${druh.nazev}'.toLowerCase();
 
   bool odpovidaHledani(String dotaz) {
     final ocisteny = dotaz.trim().toLowerCase();
@@ -67,6 +81,7 @@ class Elektromer {
       pobockaKod: data['pobocka_id'] as String? ?? '',
       cislo: data['cislo'] as String? ?? '',
       nazev: data['nazev'] as String? ?? '',
+      druh: DruhMista.zKlice(data['druh'] as String?),
       aktivni: data['aktivni'] as bool? ?? true,
       posledniOdecet: PosledniOdecet.zMapy(data['posledni_odecet']),
       vytvorenoAt: (data['vytvoreno_at'] as Timestamp?)?.toDate(),
@@ -76,11 +91,13 @@ class Elektromer {
 
   static Map<String, dynamic> mapaProZalozeni({
     required String pobockaKod,
+    required DruhMista druh,
     required String cislo,
     required String nazev,
     required String uid,
   }) => {
     'pobocka_id': pobockaKod,
+    'druh': druh.klic,
     'cislo': cislo,
     'nazev': nazev,
     'aktivni': true,
@@ -89,8 +106,8 @@ class Elektromer {
     'aktualizovano_at': FieldValue.serverTimestamp(),
   };
 
-  /// Pobočka se po založení nemění – přestěhovaný elektroměr je jiný
-  /// elektroměr a míchaly by se mu odečty přes dva areály.
+  /// Pobočka ani druh se po založení nemění – přestěhovaný elektroměr je
+  /// jiný elektroměr a míchaly by se mu odečty přes dva areály.
   static Map<String, dynamic> mapaProUpravu({
     required String cislo,
     required String nazev,

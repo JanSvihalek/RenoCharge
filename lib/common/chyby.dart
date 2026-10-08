@@ -125,7 +125,7 @@ class ZaznamNenalezen extends AppChyba {
   const ZaznamNenalezen() : super('Záznam se nepodařilo najít.');
 }
 
-// ── Elektroměry ──────────────────────────────────────────────────────────────
+// ── Odběrná místa ──────────────────────────────────────────────────────────────
 
 /// Nový odečet je nižší nebo stejný jako minulý. Buď je to překlep,
 /// nebo se měřidlo vyměnilo – druhé se musí přiznat zaškrtnutím.
@@ -133,19 +133,19 @@ class NizsiNezMinulyOdecet extends AppChyba {
   const NizsiNezMinulyOdecet(this.minulaHodnota)
     : super(
         'Nový stav musí být vyšší než minulý odečet. '
-        'Pokud se elektroměr vyměnil a počítadlo začalo od nuly, '
+        'Pokud se měřidlo vyměnilo a počítadlo začalo od nuly, '
         'zaškrtněte výměnu měřidla.',
       );
 
   final double minulaHodnota;
 }
 
-/// Na pobočce už elektroměr s tímhle číslem je. Není to bezpečnostní
+/// Na pobočce už odběrné místo s tímhle číslem je. Není to bezpečnostní
 /// problém, jen nepořádek v seznamu – proto hláška, ne zákaz v pravidlech.
 class CisloElektromeruObsazene extends AppChyba {
   const CisloElektromeruObsazene(String cislo)
     : super(
-        'Elektroměr s číslem $cislo už je na této pobočce evidovaný. '
+        'Měřidlo s číslem $cislo už je na této pobočce evidované. '
         'Zkontrolujte prosím číslo na štítku.',
       );
 }

@@ -145,20 +145,32 @@ service cloud.firestore {
       }
     }
 
-    // ── Elektroměry ────────────────────────────────────────────────────
+    // ── Odběrná místa ──────────────────────────────────────────────────
+    // Kolekce se jmenuje podle prvních elektroměrů; dnes nese i plyn,
+    // klimatizaci a nabíječky (pole `druh`). ID dokumentů jsou v QR
+    // kódech, proto se nepřejmenovala.
+    //
     // Čte je celá firma – není to osobní údaj, je to firemní
     // infrastruktura. Zakládat a upravovat smí jen údržba.
     match /elektromery/{elektromerId} {
+      // Chybějící `druh` je elektřina – dokumenty z doby před druhy
+      // ho nemají a nemusí se kvůli tomu přepisovat.
+      function druh(data) {
+        return data.get('druh', 'elektrina');
+      }
+
       function tvarElektromeru() {
         return nova().keys().hasOnly([
-          'pobocka_id', 'cislo', 'nazev', 'aktivni', 'posledni_odecet',
+          'pobocka_id', 'druh', 'cislo', 'nazev', 'aktivni', 'posledni_odecet',
           'vytvoreno_at', 'vytvoril_uid', 'aktualizovano_at'
         ])
         && nova().keys().hasAll(['pobocka_id', 'cislo', 'nazev', 'aktivni'])
         && nova().pobocka_id is string
         && nova().pobocka_id.size() > 0
+        && druh(nova()) in ['elektrina', 'plyn', 'klimatizace', 'nabijecka']
+        // Výrobní číslo smí být prázdné – výchozí seznam míst ho nemá
+        // a místo se pozná podle QR.
         && nova().cislo is string
-        && nova().cislo.size() > 0
         && nova().cislo.size() <= 40
         && nova().nazev is string
         && nova().nazev.size() > 0
@@ -172,12 +184,13 @@ service cloud.firestore {
         && tvarElektromeru()
         && nova().vytvoril_uid == ja();
 
-      // Pobočka se po založení nemění – přestěhovaný elektroměr je jiný
-      // elektroměr a míchaly by se mu odečty přes dva areály. Autor
-      // záznamu se taky nepřepisuje.
+      // Pobočka ani druh se po založení nemění – přestěhovaný elektroměr
+      // je jiný elektroměr a míchaly by se mu odečty přes dva areály,
+      // stejně jako m³ s kWh. Autor záznamu se taky nepřepisuje.
       allow update: if spravujeElektromery()
         && tvarElektromeru()
         && nova().pobocka_id == stara().pobocka_id
+        && druh(nova()) == druh(stara())
         && nova().vytvoreno_at == stara().vytvoreno_at
         && nova().vytvoril_uid == stara().vytvoril_uid;
 

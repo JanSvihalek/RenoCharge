@@ -81,7 +81,7 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
         context,
         elektromer == null
             ? 'Ve zvoleném období není žádné dokončené nabíjení.'
-            : 'Ve zvoleném období není u tohoto elektroměru žádný odečet.',
+            : 'Ve zvoleném období tu není žádný odečet.',
       );
     }
   }
@@ -119,16 +119,22 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                 ),
                 children: [
                   if (widget.elektromer case final e?) ...[
-                    const NadpisSekce('Elektroměr'),
+                    const NadpisSekce('Odběrné místo'),
                     Karta(
                       child: Column(
                         children: [
                           RadekDat(popisek: 'Umístění', hodnota: e.nazev),
                           RadekDat(
-                            popisek: 'Číslo',
-                            hodnota: e.cislo,
-                            posledni: true,
+                            popisek: 'Druh',
+                            hodnota: e.druh.nazev,
+                            posledni: !e.maCislo,
                           ),
+                          if (e.maCislo)
+                            RadekDat(
+                              popisek: 'Číslo',
+                              hodnota: e.cislo,
+                              posledni: true,
+                            ),
                         ],
                       ),
                     ),

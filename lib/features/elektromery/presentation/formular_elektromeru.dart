@@ -9,17 +9,29 @@ import '../../../common/widgety/pole.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../application/elektromery_providery.dart';
+import '../domain/druh_mista.dart';
 import '../domain/elektromer.dart';
 import '../domain/pobocka.dart';
+import 'ikona_druhu.dart';
 
-/// Založení nového elektroměru nebo úprava stávajícího.
+/// Založení nového odběrného místa nebo úprava stávajícího.
 ///
-/// Pobočka se u úpravy nemění – přestěhovaný elektroměr je jiný
-/// elektroměr a míchaly by se mu odečty přes dva areály.
+/// Pobočka ani druh se u úpravy nemění – přestěhovaný elektroměr je jiný
+/// elektroměr a míchaly by se mu odečty přes dva areály. Plynoměr
+/// a elektroměr v jedné místnosti jsou taky dvě místa, ne jedno.
 class FormularElektromeru extends ConsumerStatefulWidget {
-  const FormularElektromeru({super.key, required this.pobocka, this.upravuje});
+  const FormularElektromeru({
+    super.key,
+    required this.pobocka,
+    this.druh,
+    this.upravuje,
+  });
 
   final Pobocka pobocka;
+
+  /// Předvybraný druh u nového místa – ten, na který je zrovna
+  /// filtrovaný seznam. `null` znamená, že si ho uživatel vybere.
+  final DruhMista? druh;
   final Elektromer? upravuje;
 
   bool get jeUprava => upravuje != null;
@@ -32,6 +44,7 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
   late final _cislo = TextEditingController(text: widget.upravuje?.cislo ?? '');
   late final _nazev = TextEditingController(text: widget.upravuje?.nazev ?? '');
   late bool _aktivni = widget.upravuje?.aktivni ?? true;
+  late DruhMista? _druh = widget.upravuje?.druh ?? widget.druh;
 
   final _fokusNazev = FocusNode();
   String? _chyba;
@@ -47,8 +60,15 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
   Future<void> _uloz() async {
     final cislo = _cislo.text.trim();
     final nazev = _nazev.text.trim();
-    if (cislo.isEmpty || nazev.isEmpty) {
-      setState(() => _chyba = 'Vyplňte prosím číslo ze štítku i umístění.');
+    final druh = _druh;
+    // Číslo je nepovinné: výchozí seznam míst ho nemá a místo se pozná
+    // podle QR. Bez umístění by ho ale nikdo nenašel.
+    if (nazev.isEmpty) {
+      setState(() => _chyba = 'Vyplňte prosím umístění.');
+      return;
+    }
+    if (druh == null) {
+      setState(() => _chyba = 'Vyberte prosím, co se tu měří.');
       return;
     }
 
@@ -57,6 +77,7 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
     final povedlo = upravovany == null
         ? await rizeni.pridej(
                 pobocka: widget.pobocka,
+                druh: druh,
                 cislo: cislo,
                 nazev: nazev,
               ) !=
@@ -73,7 +94,9 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
       Navigator.of(context).pop();
       ukazInfo(
         context,
-        upravovany == null ? 'Elektroměr byl přidán.' : 'Změny byly uloženy.',
+        upravovany == null
+            ? 'Odběrné místo bylo přidáno.'
+            : 'Změny byly uloženy.',
       );
     } else {
       final chyba = ref.read(elektromeryControllerProvider).error;
@@ -103,8 +126,8 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
           children: [
             HlavickaToku(
               titulek: widget.jeUprava
-                  ? 'Upravit elektroměr'
-                  : 'Nový elektroměr',
+                  ? 'Upravit odběrné místo'
+                  : 'Nové odběrné místo',
               onZpet: uklada ? null : () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -117,15 +140,57 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
                 ),
                 children: [
                   Karta(
-                    child: RadekDat(
-                      popisek: 'Pobočka',
-                      hodnota: pobocka,
-                      posledni: true,
+                    child: Column(
+                      children: [
+                        RadekDat(
+                          popisek: 'Pobočka',
+                          hodnota: pobocka,
+                          posledni: upravovany == null,
+                        ),
+                        if (upravovany != null)
+                          RadekDat(
+                            popisek: 'Druh',
+                            hodnota:
+                                '${upravovany.druh.nazev} '
+                                '(${upravovany.druh.jednotka})',
+                            posledni: true,
+                          ),
+                      ],
                     ),
                   ),
+                  if (!widget.jeUprava) ...[
+                    const NadpisSekce('Co se tu měří'),
+                    for (final d in DruhMista.values)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: VolbaKarta(
+                          vybrano: _druh == d,
+                          onTap: () => setState(() {
+                            _druh = d;
+                            _chyba = null;
+                          }),
+                          child: Row(
+                            children: [
+                              Icon(ikonaDruhu(d), size: 20, color: b.textDim),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  d.nazev,
+                                  style: Theme.of(context).textTheme.bodyLarge,
+                                ),
+                              ),
+                              Text(
+                                d.jednotka,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                   const SizedBox(height: 16),
                   PoleSPopiskem(
-                    popisek: 'Číslo ze štítku',
+                    popisek: 'Číslo ze štítku (nepovinné)',
                     ovladac: _cislo,
                     napoveda: 'např. 18 342 771',
                     klavesnice: TextInputType.text,
@@ -146,8 +211,9 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
                   const SizedBox(height: 8),
                   Text(
                     'Podle čísla i umístění se v seznamu vyhledává. '
-                    'Umístění pište tak, aby podle něj elektroměr našel '
-                    'i někdo jiný.',
+                    'Umístění pište tak, aby podle něj měřidlo našel '
+                    'i někdo jiný. Číslo ze štítku pomůže, když se QR '
+                    'kód poškodí.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   if (widget.jeUprava) ...[
@@ -165,7 +231,7 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                         subtitle: Text(
-                          'Vyřazený elektroměr zmizí z obchůzky, ale jeho '
+                          'Vyřazené místo zmizí z obchůzky, ale jeho '
                           'odečty zůstanou v historii.',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
@@ -190,7 +256,7 @@ class _FormularState extends ConsumerState<FormularElektromeru> {
                 child: PrimarniTlacitko(
                   popisek: widget.jeUprava
                       ? 'Uložit změny'
-                      : 'Přidat elektroměr',
+                      : 'Přidat odběrné místo',
                   nacita: uklada,
                   onTap: uklada ? null : _uloz,
                 ),

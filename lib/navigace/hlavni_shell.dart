@@ -51,7 +51,7 @@ Widget obrazovkaZalozky(Zalozka zalozka) => switch (zalozka) {
   Zalozka.nabijeni => (ikona: Icons.ev_station_outlined, popisek: 'Nabíjení'),
   Zalozka.elektromery => (
     ikona: Icons.electric_meter_outlined,
-    popisek: 'Elektroměry',
+    popisek: 'Odběrná místa',
   ),
   Zalozka.nastaveni => (ikona: Icons.settings_outlined, popisek: 'Nastavení'),
 };

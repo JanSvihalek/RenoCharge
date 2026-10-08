@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../common/chyby.dart';
 import '../../../common/firebase/firebase_providery.dart';
+import '../domain/druh_mista.dart';
 import '../domain/elektromer.dart';
+import '../domain/vychozi_mista.dart';
 
 /// Čtení a správa elektroměrů. Zápis smí jen údržba – vynucují to
 /// `firestore.rules`, tady se na roli nespoléhá.
@@ -32,25 +34,29 @@ class ElektromeryRepository {
       .map((doc) => doc.exists ? Elektromer.zDokumentu(doc) : null)
       .handleError((Object chyba) => throw AppChyba.zFirebase(chyba));
 
-  /// Založí elektroměr a vrátí jeho ID.
+  /// Založí odběrné místo a vrátí jeho ID.
   ///
   /// Jedinečnost čísla v rámci pobočky se hlídá dotazem, ne pravidlem –
   /// pravidla by na to potřebovala další pomocnou evidenci a duplicita
-  /// není bezpečnostní problém, jen nepořádek v seznamu.
+  /// není bezpečnostní problém, jen nepořádek v seznamu. Místo bez čísla
+  /// se nekontroluje, prázdných může být kolik chce.
   Future<String> pridej({
     required String pobockaKod,
+    required DruhMista druh,
     required String cislo,
     required String nazev,
     required String uid,
   }) async {
     final ocistene = Elektromer.normalizujCislo(cislo);
     try {
-      if (await cisloObsazeno(pobockaKod: pobockaKod, cislo: ocistene)) {
+      if (ocistene.isNotEmpty &&
+          await cisloObsazeno(pobockaKod: pobockaKod, cislo: ocistene)) {
         throw CisloElektromeruObsazene(ocistene);
       }
       final doc = await _elektromery.add(
         Elektromer.mapaProZalozeni(
           pobockaKod: pobockaKod,
+          druh: druh,
           cislo: ocistene,
           nazev: nazev.trim(),
           uid: uid,
@@ -70,7 +76,8 @@ class ElektromeryRepository {
   }) async {
     final ocistene = Elektromer.normalizujCislo(cislo);
     try {
-      if (Elektromer.klicCisla(ocistene) !=
+      if (ocistene.isNotEmpty &&
+          Elektromer.klicCisla(ocistene) !=
               Elektromer.klicCisla(elektromer.cislo) &&
           await cisloObsazeno(
             pobockaKod: elektromer.pobockaKod,
@@ -90,6 +97,46 @@ class ElektromeryRepository {
     } catch (chyba) {
       throw AppChyba.zFirebase(chyba);
     }
+  }
+
+  /// Založí místa z výchozího seznamu pod jejich pevnými ID a vrátí,
+  /// kolik jich vzniklo.
+  ///
+  /// Volající předává jen ta, která v evidenci chybí. Kdyby některé
+  /// mezitím založil někdo jiný, zápis na existující dokument je pro
+  /// pravidla úprava se změněným `vytvoreno_at` a odmítnou ho – přepsat
+  /// cizí odečty se tím nedá.
+  ///
+  /// Zápisy jdou souběžně a dokončí se všechny, i když některý selže.
+  /// Pak se vyhodí první chyba; co prošlo, zůstane a druhý pokus doplní
+  /// jen zbytek.
+  Future<int> zalozVychozi({
+    required List<VychoziMisto> mista,
+    required String uid,
+  }) async {
+    Object? prvniChyba;
+    var zalozeno = 0;
+    await Future.wait([
+      for (final m in mista)
+        _elektromery
+            .doc(m.id)
+            .set(
+              Elektromer.mapaProZalozeni(
+                pobockaKod: m.pobocka.kod,
+                druh: m.druh,
+                cislo: '',
+                nazev: m.nazev,
+                uid: uid,
+              ),
+            )
+            .then((_) => zalozeno++)
+            .catchError((Object chyba) {
+              prvniChyba ??= chyba;
+              return 0;
+            }),
+    ]);
+    if (prvniChyba case final chyba?) throw AppChyba.zFirebase(chyba);
+    return zalozeno;
   }
 
   /// Porovnává se bez mezer, proto se načtou elektroměry pobočky

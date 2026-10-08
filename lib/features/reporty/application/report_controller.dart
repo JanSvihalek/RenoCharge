@@ -311,12 +311,12 @@ class ReportController extends Notifier<StavReportu> {
       await Printing.sharePdf(
         bytes: bajty,
         filename: nazevSouboru(
-          'elektromer ${elektromer.cislo}',
+          '${elektromer.druh.nazev} ${elektromer.nazev}',
           obdobi,
-          predpona: 'report-elektromer',
+          predpona: 'report-misto',
         ),
         subject:
-            'Elektroměr ${elektromer.cislo} · '
+            '${elektromer.druh.nazev} · ${elektromer.nazev} · '
             '${Format.datum(obdobi.od)} – ${Format.datum(obdobi.doVcetne)}',
       );
 
@@ -369,8 +369,8 @@ class ReportController extends Notifier<StavReportu> {
         bytes: bajty,
         filename: nazevStitku(popis, jeden: jeden),
         subject: jeden
-            ? 'QR štítek elektroměru · $popis'
-            : 'QR štítky elektroměrů · $popis',
+            ? 'QR štítek odběrného místa · $popis'
+            : 'QR štítky odběrných míst · $popis',
       );
 
       state = const ReportPripraven();
@@ -381,7 +381,7 @@ class ReportController extends Notifier<StavReportu> {
     }
   }
 
-  /// `qr-stitek-elektromer-18-342-771.pdf`, pro pobočku `qr-stitky-bsl.pdf`.
+  /// `qr-stitek-plyn-kotelna.pdf`, pro pobočku `qr-stitky-bsl.pdf`.
   static String nazevStitku(String popis, {required bool jeden}) {
     final nazev = bezDiakritiky(
       popis,

@@ -15,10 +15,10 @@ import '../domain/elektromer.dart';
 import '../domain/odecet.dart';
 import '../domain/pobocka.dart';
 import 'formular_elektromeru.dart';
+import 'ikona_druhu.dart';
 import 'tok_odectu.dart';
 
-/// Detail elektroměru. Zatím jen údaje a úprava – historie odečtů
-/// přibude s dalším krokem.
+/// Detail odběrného místa: údaje, zápis odečtu, historie a export.
 class ElektromerObrazovka extends ConsumerWidget {
   const ElektromerObrazovka({super.key, required this.elektromerId});
 
@@ -36,7 +36,7 @@ class ElektromerObrazovka extends ConsumerWidget {
         child: Column(
           children: [
             HlavickaToku(
-              titulek: 'Detail elektroměru',
+              titulek: 'Odběrné místo',
               onZpet: () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -50,7 +50,7 @@ class ElektromerObrazovka extends ConsumerWidget {
                   ),
                 ),
                 AsyncData(:final value) when value == null => const PrazdnyStav(
-                  text: 'Elektroměr se nepodařilo najít.',
+                  text: 'Odběrné místo se nepodařilo najít.',
                 ),
                 AsyncData(:final value) => _Obsah(elektromer: value!),
                 _ => const Center(child: CircularProgressIndicator()),
@@ -71,6 +71,7 @@ class _Obsah extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historie = ref.watch(historieOdectuProvider(elektromer.id));
+    final jednotka = elektromer.druh.jednotka;
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         Rozmery.okrajStranky,
@@ -82,7 +83,7 @@ class _Obsah extends ConsumerWidget {
         if (!elektromer.aktivni) ...[
           ChybovyBlok(
             zprava:
-                'Tento elektroměr je vyřazený z provozu. V obchůzce se '
+                'Toto odběrné místo je vyřazené z provozu. V obchůzce se '
                 'neobjeví, jeho odečty ale zůstávají v historii.',
           ),
           const SizedBox(height: 16),
@@ -91,7 +92,14 @@ class _Obsah extends ConsumerWidget {
           child: Column(
             children: [
               RadekDat(popisek: 'Umístění', hodnota: elektromer.nazev),
-              RadekDat(popisek: 'Číslo ze štítku', hodnota: elektromer.cislo),
+              RadekDat(
+                popisek: 'Druh',
+                hodnota: '${elektromer.druh.nazev} ($jednotka)',
+              ),
+              RadekDat(
+                popisek: 'Číslo ze štítku',
+                hodnota: elektromer.maCislo ? elektromer.cislo : '—',
+              ),
               RadekDat(
                 popisek: 'Pobočka',
                 hodnota: elektromer.pobocka?.popisek ?? elektromer.pobockaKod,
@@ -122,12 +130,14 @@ class _Obsah extends ConsumerWidget {
             onZkusitZnovu: () =>
                 ref.invalidate(historieOdectuProvider(elektromer.id)),
           ),
-          AsyncData(:final value) when value.isEmpty => const PrazdnyStav(
+          AsyncData(:final value) when value.isEmpty => PrazdnyStav(
             text: 'Zatím tu není žádný odečet.',
-            ikona: Icons.electric_meter_outlined,
+            ikona: ikonaDruhu(elektromer.druh),
           ),
           AsyncData(:final value) => Column(
-            children: [for (final o in value) _RadekOdectu(o)],
+            children: [
+              for (final o in value) _RadekOdectu(o, jednotka: jednotka),
+            ],
           ),
           _ => const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
@@ -145,18 +155,20 @@ class _Obsah extends ConsumerWidget {
           ),
         ),
         // Jednotlivý štítek se hodí, když se ten nalepený poškodí nebo
-        // když elektroměr přibude po hromadném tisku za pobočku.
+        // když místo přibude po hromadném tisku za pobočku.
         OdkazoveTlacitko(
           popisek: 'Vytisknout QR štítek',
           onTap: () => ref
               .read(reportControllerProvider.notifier)
               .vytvorStitky(
-                popis: 'elektromer ${elektromer.cislo}',
+                popis:
+                    '${elektromer.druh.nazev} '
+                    '${elektromer.maCislo ? elektromer.cislo : elektromer.nazev}',
                 elektromery: [elektromer],
               ),
         ),
         OdkazoveTlacitko(
-          popisek: 'Upravit elektroměr',
+          popisek: 'Upravit odběrné místo',
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => FormularElektromeru(
@@ -174,9 +186,10 @@ class _Obsah extends ConsumerWidget {
 /// Jeden odečet v historii. Spotřeba je dopočítaná proti předchozímu
 /// záznamu, neukládá se – viz [dopocitejSpotrebu].
 class _RadekOdectu extends StatelessWidget {
-  const _RadekOdectu(this.polozka);
+  const _RadekOdectu(this.polozka, {required this.jednotka});
 
   final OdecetSeSpotrebou polozka;
+  final String jednotka;
 
   @override
   Widget build(BuildContext context) {
@@ -198,7 +211,7 @@ class _RadekOdectu extends StatelessWidget {
                     cesta: o.foto.path,
                     popisek:
                         '${Format.datum(o.odectenoAt)} · '
-                        '${Format.kwh(o.hodnota)} kWh',
+                        '${Format.kwh(o.hodnota)} $jednotka',
                   ),
                 ),
               ),
@@ -217,7 +230,7 @@ class _RadekOdectu extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '${Format.kwh(o.hodnota)} kWh',
+                      '${Format.kwh(o.hodnota)} $jednotka',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 2),
@@ -240,7 +253,7 @@ class _RadekOdectu extends StatelessWidget {
               const SizedBox(width: 12),
               if (spotreba != null)
                 Text(
-                  '+${Format.kwh(spotreba)} kWh',
+                  '+${Format.kwh(spotreba)} $jednotka',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyLarge?.copyWith(color: b.accent),

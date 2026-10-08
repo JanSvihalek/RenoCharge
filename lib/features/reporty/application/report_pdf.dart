@@ -65,12 +65,12 @@ class ReportPdf {
     return dokument.save();
   }
 
-  /// Report jednoho elektroměru: vývoj stavu, spotřeba mezi odečty
-  /// a změna proti předchozímu období.
+  /// Report jednoho odběrného místa: vývoj stavu, spotřeba mezi odečty
+  /// a změna proti předchozímu období. Jednotka podle druhu místa.
   Future<Uint8List> sestavElektromer(PodkladElektromeru podklad) async {
     final e = podklad.elektromer;
     final dokument = pw.Document(
-      title: 'Report elektroměru ${e.cislo}',
+      title: 'Report odběrného místa ${e.druh.nazev} – ${e.nazev}',
       author: 'RenoCharge',
     );
 
@@ -104,13 +104,19 @@ class ReportPdf {
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          'Report elektroměru',
+          'Report odběrného místa',
           style: pw.TextStyle(font: tucne, fontSize: 20),
         ),
         pw.SizedBox(height: 4),
-        pw.Text(e.nazev, style: const pw.TextStyle(fontSize: 11)),
         pw.Text(
-          'č. ${e.cislo} · ${e.pobocka?.popisek ?? e.pobockaKod}',
+          '${e.druh.nazev} · ${e.nazev}',
+          style: const pw.TextStyle(fontSize: 11),
+        ),
+        pw.Text(
+          [
+            if (e.maCislo) 'č. ${e.cislo}',
+            e.pobocka?.popisek ?? e.pobockaKod,
+          ].join(' · '),
           style: const pw.TextStyle(fontSize: 11),
         ),
         pw.Text(
@@ -133,14 +139,21 @@ class ReportPdf {
   pw.Widget _prazdnoElektromer() => pw.Padding(
     padding: const pw.EdgeInsets.symmetric(vertical: 24),
     child: pw.Text(
-      'Ve zvoleném období není u tohoto elektroměru žádný odečet.',
+      'Ve zvoleném období tu není žádný odečet.',
       style: const pw.TextStyle(fontSize: 11, color: _seda),
     ),
   );
 
   pw.Widget _tabulkaOdectu(PodkladElektromeru podklad) {
+    final jednotka = podklad.elektromer.druh.jednotka;
     return pw.TableHelper.fromTextArray(
-      headers: const ['Datum', 'Stav', 'Spotřeba', 'Změna', 'Poznámka'],
+      headers: [
+        'Datum',
+        'Stav ($jednotka)',
+        'Spotřeba ($jednotka)',
+        'Změna',
+        'Poznámka',
+      ],
       data: [
         for (final p in podklad.polozky)
           [
@@ -188,7 +201,8 @@ class ReportPdf {
     children: [
       pw.Text('Celkem za období: ', style: const pw.TextStyle(fontSize: 11)),
       pw.Text(
-        '${Format.kwh(podklad.celkovaSpotreba)} kWh',
+        '${Format.kwh(podklad.celkovaSpotreba)} '
+        '${podklad.elektromer.druh.jednotka}',
         style: pw.TextStyle(font: tucne, fontSize: 13),
       ),
     ],
@@ -211,7 +225,8 @@ class ReportPdf {
               width: 160,
               child: _snimek(
                 '${Format.datum(p.odecet.odectenoAt)} · '
-                '${Format.kwh(p.odecet.hodnota)} kWh',
+                '${Format.kwh(p.odecet.hodnota)} '
+                '${podklad.elektromer.druh.jednotka}',
                 p.foto,
               ),
             ),
@@ -225,10 +240,12 @@ class ReportPdf {
   /// Vyrobit osmdesát kódů ručně by bylo na den práce – aplikace umí
   /// vysázet arch sama, protože sázecí stroj na PDF už v projektu je.
   ///
-  /// Pod kódem je i číslo a umístění, aby šlo štítek nalepit na správný
-  /// elektroměr a aby se dal přečíst i okem, když se kód poškrábe.
+  /// Vedle kódu je umístění, druh a číslo, aby šlo štítek nalepit na
+  /// správné měřidlo a aby se dal přečíst i okem, když se kód poškrábe.
+  /// Druh je tam kvůli místům, která se jmenují stejně – „Servis" je
+  /// plynoměr, elektroměr, klimatizace i nabíječka.
   Future<Uint8List> sestavStitky(List<Elektromer> elektromery) async {
-    final dokument = pw.Document(title: 'QR štítky elektroměrů');
+    final dokument = pw.Document(title: 'QR štítky odběrných míst');
 
     dokument.addPage(
       pw.MultiPage(
@@ -271,16 +288,21 @@ class ReportPdf {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                e.cislo,
+                e.nazev,
                 style: pw.TextStyle(font: tucne, fontSize: 9),
-                maxLines: 2,
+                maxLines: 3,
               ),
               pw.SizedBox(height: 3),
               pw.Text(
-                e.nazev,
+                e.druh.nazev,
                 style: const pw.TextStyle(fontSize: 8, color: _seda),
-                maxLines: 3,
               ),
+              if (e.maCislo)
+                pw.Text(
+                  'č. ${e.cislo}',
+                  style: const pw.TextStyle(fontSize: 8, color: _seda),
+                  maxLines: 2,
+                ),
               pw.Spacer(),
               pw.Text(
                 e.pobocka?.kod ?? e.pobockaKod,

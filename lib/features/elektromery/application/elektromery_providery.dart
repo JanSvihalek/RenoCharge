@@ -4,8 +4,10 @@ import '../../../common/chyby.dart';
 import '../../../common/firebase/firebase_providery.dart';
 import '../../auth/application/auth_providery.dart';
 import '../data/elektromery_repository.dart';
+import '../domain/druh_mista.dart';
 import '../domain/elektromer.dart';
 import '../domain/pobocka.dart';
+import '../domain/vychozi_mista.dart';
 
 final elektromeryRepositoryProvider = Provider<ElektromeryRepository>((ref) {
   return ElektromeryRepository(db: ref.watch(firestoreProvider));
@@ -34,6 +36,37 @@ class Hledani extends Notifier<String> {
 
 final hledaniProvider = NotifierProvider<Hledani, String>(Hledani.new);
 
+/// Zobrazený druh odběrných míst, `null` znamená všechny. Údržbář
+/// obvykle obchází jeden druh naráz – plynoměry jsou jinde než
+/// elektroměry – takže volba vydrží po celou dobu běhu aplikace.
+class VybranyDruh extends Notifier<DruhMista?> {
+  @override
+  DruhMista? build() => null;
+
+  void vyber(DruhMista? druh) => state = druh;
+}
+
+final vybranyDruhProvider = NotifierProvider<VybranyDruh, DruhMista?>(
+  VybranyDruh.new,
+);
+
+/// Místa z výchozího seznamu, která na zvolené pobočce ještě nejsou.
+/// Dokud nějaké chybí, nabízí seznam jejich založení.
+///
+/// Porovnává se podle pevného ID, ne podle názvu – přejmenované místo
+/// tak nechybí a nezaloží se znovu.
+final chybejiciVychoziProvider = Provider<List<VychoziMisto>>((ref) {
+  final pobocka = ref.watch(vybranaPobockaProvider);
+  final evidovana = ref.watch(elektromeryProvider).value;
+  // Dokud seznam nedorazil, nedá se říct, co chybí.
+  if (evidovana == null) return const [];
+  final idcka = {for (final e in evidovana) e.id};
+  return [
+    for (final m in vychoziMista)
+      if (m.pobocka == pobocka && !idcka.contains(m.id)) m,
+  ];
+});
+
 /// Elektroměry zvolené pobočky, seřazené podle umístění.
 final elektromeryProvider = StreamProvider<List<Elektromer>>((ref) {
   if (ref.watch(uidProvider) == null) {
@@ -57,6 +90,7 @@ class ElektromeryController extends AsyncNotifier<void> {
 
   Future<String?> pridej({
     required Pobocka pobocka,
+    required DruhMista druh,
     required String cislo,
     required String nazev,
   }) async {
@@ -71,6 +105,7 @@ class ElektromeryController extends AsyncNotifier<void> {
           .read(elektromeryRepositoryProvider)
           .pridej(
             pobockaKod: pobocka.kod,
+            druh: druh,
             cislo: cislo,
             nazev: nazev,
             uid: uid,
@@ -100,6 +135,26 @@ class ElektromeryController extends AsyncNotifier<void> {
           ),
     );
     return !state.hasError;
+  }
+
+  /// Založí chybějící místa z výchozího seznamu. Vrací počet založených,
+  /// při chybě `null` – co se stihlo založit, zůstane.
+  Future<int?> zalozVychozi(List<VychoziMisto> mista) async {
+    final uid = ref.read(uidProvider);
+    if (uid == null) {
+      state = AsyncValue.error(const NeniPrihlasen(), StackTrace.current);
+      return null;
+    }
+    state = const AsyncValue.loading();
+    final vysledek = await AsyncValue.guard(
+      () => ref
+          .read(elektromeryRepositoryProvider)
+          .zalozVychozi(mista: mista, uid: uid),
+    );
+    state = vysledek.hasError
+        ? AsyncValue.error(vysledek.error!, vysledek.stackTrace!)
+        : const AsyncValue.data(null);
+    return vysledek.value;
   }
 
   void vymazChybu() => state = const AsyncValue.data(null);

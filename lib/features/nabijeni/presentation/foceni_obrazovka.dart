@@ -23,7 +23,7 @@ enum RezimFoceni {
     'Vyfoťte počítadlo po nabití',
     'Koncový stav musí být vyšší než počáteční',
   ),
-  odecet('Vyfoťte stav elektroměru', 'Nový stav musí být vyšší než minulý'),
+  odecet('Vyfoťte stav měřidla', 'Nový stav musí být vyšší než minulý'),
 
   /// Nabíječka bez počítadla: displej ukazuje rovnou energii nabitou
   /// za tohle nabíjení, takže se zadává výsledek, ne stav.
@@ -74,7 +74,12 @@ class VysledekFoceni {
 /// OCR je tu jako pomůcka: číslo je vždy přepisovatelné a bez potvrzení
 /// tlačítkem se nikam nezapíše.
 class FoceniObrazovka extends ConsumerStatefulWidget {
-  const FoceniObrazovka({super.key, required this.rezim, this.kwhStart});
+  const FoceniObrazovka({
+    super.key,
+    required this.rezim,
+    this.kwhStart,
+    this.jednotka = 'kWh',
+  });
 
   final RezimFoceni rezim;
 
@@ -82,6 +87,10 @@ class FoceniObrazovka extends ConsumerStatefulWidget {
   /// stav relace, u odečtu elektroměru minulý odečet. `null` znamená
   /// bez kontroly.
   final double? kwhStart;
+
+  /// Jednotka u pole a v hláškách. Nabíjení i elektřina jsou v kWh,
+  /// plynoměr v m³.
+  final String jednotka;
 
   @override
   ConsumerState<FoceniObrazovka> createState() => _FoceniObrazovkaState();
@@ -294,7 +303,9 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
     if (start != null && hodnota <= start) {
       // U nuly se mez nevypisuje – „vyšší než nula (0,00 kWh)" je
       // totéž dvakrát.
-      final mez = start == 0 ? '' : ' (${Format.kwh(start)} kWh)';
+      final mez = start == 0
+          ? ''
+          : ' (${Format.kwh(start)} ${widget.jednotka})';
       setState(
         () => _chyba =
             '${widget.rezim.chybaMinima}$mez. Zkontrolujte prosím hodnotu.',
@@ -476,7 +487,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
   List<Widget> _obsahPrecteno() => [
     Text('Přečtená hodnota', style: Theme.of(context).textTheme.titleSmall),
     const SizedBox(height: 10),
-    _PoleHodnoty(pole: _pole, onZmena: _zahodChybu),
+    _PoleHodnoty(pole: _pole, jednotka: widget.jednotka, onZmena: _zahodChybu),
     const SizedBox(height: 8),
     _Popisek('Zkontrolujte číslo a v případě potřeby jej opravte.'),
     PuvodFotky(_foto!),
@@ -524,6 +535,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
         const SizedBox(height: 12),
         _PoleHodnoty(
           pole: _pole,
+          jednotka: widget.jednotka,
           onZmena: _zahodChybu,
           napoveda: 'např. ${widget.rezim.priklad}',
           automatickyFokus: true,
@@ -720,12 +732,14 @@ class _HorniPruh extends StatelessWidget {
 class _PoleHodnoty extends StatelessWidget {
   const _PoleHodnoty({
     required this.pole,
+    required this.jednotka,
     required this.onZmena,
     this.napoveda,
     this.automatickyFokus = false,
   });
 
   final TextEditingController pole;
+  final String jednotka;
   final VoidCallback onZmena;
   final String? napoveda;
   final bool automatickyFokus;
@@ -764,7 +778,7 @@ class _PoleHodnoty extends StatelessWidget {
             ),
           ),
           Text(
-            'kWh',
+            jednotka,
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: b.textDim),

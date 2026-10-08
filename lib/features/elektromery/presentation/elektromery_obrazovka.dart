@@ -7,29 +7,41 @@ import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../../common/formatovani.dart';
+import '../../../common/chyby.dart';
 import '../application/elektromery_providery.dart';
+import '../domain/druh_mista.dart';
 import '../domain/elektromer.dart';
 import '../domain/pobocka.dart';
+import '../domain/vychozi_mista.dart';
 import '../../reporty/application/report_controller.dart';
 import '../domain/identifikace.dart';
 import 'elektromer_obrazovka.dart';
 import 'formular_elektromeru.dart';
+import 'ikona_druhu.dart';
 import 'skener_obrazovka.dart';
 import 'tok_odectu.dart';
 
-/// Seznam elektroměrů zvolené pobočky.
+/// Seznam odběrných míst zvolené pobočky – elektřina, plyn, klimatizace
+/// a nabíječky, s filtrem podle druhu.
 ///
-/// Až přibudou odečty, stane se z téhle obrazovky zároveň obchůzka –
-/// rozdělení na „zbývá / hotovo" se dopočítá z posledního odečtu, žádná
-/// zvláštní entita nevznikne.
+/// Obrazovka je zároveň obchůzka – rozdělení na „zbývá / hotovo" se
+/// dopočítá z posledního odečtu, žádná zvláštní entita nevznikne.
 class ElektromeryObrazovka extends ConsumerWidget {
   const ElektromeryObrazovka({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pobocka = ref.watch(vybranaPobockaProvider);
+    final druh = ref.watch(vybranyDruhProvider);
     final dotaz = ref.watch(hledaniProvider);
     final elektromery = ref.watch(elektromeryProvider);
+    final chybejici = ref.watch(chybejiciVychoziProvider);
+    // Štítky i seznam berou jen zvolený druh – plynoměry se obcházejí
+    // jinudy než elektroměry.
+    final zobrazena = [
+      for (final e in elektromery.value ?? const <Elektromer>[])
+        if (druh == null || e.druh == druh) e,
+    ];
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -40,35 +52,37 @@ class ElektromeryObrazovka extends ConsumerWidget {
       ),
       children: [
         VelkyNadpis(
-          'Elektroměry',
+          'Odběrná místa',
           akce: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IkonoveTlacitko(
                 ikona: Icons.qr_code_2,
-                popisPristupnosti: 'Vytisknout QR štítky pobočky',
+                popisPristupnosti: druh == null
+                    ? 'Vytisknout QR štítky pobočky'
+                    : 'Vytisknout QR štítky: ${druh.nazev}',
                 onTap: () async {
                   final pocet = await ref
                       .read(reportControllerProvider.notifier)
                       .vytvorStitky(
-                        popis: pobocka.kod,
-                        elektromery: elektromery.value ?? const [],
+                        popis: druh == null
+                            ? pobocka.kod
+                            : '${pobocka.kod} ${druh.nazev}',
+                        elektromery: zobrazena,
                       );
                   if (context.mounted && pocet == 0) {
-                    ukazVarovani(
-                      context,
-                      'Na této pobočce zatím není co oštítkovat.',
-                    );
+                    ukazVarovani(context, 'Zatím tu není co oštítkovat.');
                   }
                 },
               ),
               const SizedBox(width: 8),
               IkonoveTlacitko(
                 ikona: Icons.add,
-                popisPristupnosti: 'Přidat elektroměr',
+                popisPristupnosti: 'Přidat odběrné místo',
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => FormularElektromeru(pobocka: pobocka),
+                    builder: (_) =>
+                        FormularElektromeru(pobocka: pobocka, druh: druh),
                   ),
                 ),
               ),
@@ -81,6 +95,12 @@ class ElektromeryObrazovka extends ConsumerWidget {
               ref.read(vybranaPobockaProvider.notifier).vyber(nova),
         ),
         const SizedBox(height: 12),
+        _FiltrDruhu(
+          vybrany: druh,
+          vsechna: elektromery.value ?? const [],
+          onZmena: (novy) => ref.read(vybranyDruhProvider.notifier).vyber(novy),
+        ),
+        const SizedBox(height: 12),
         _PoleHledani(
           hodnota: dotaz,
           onZmena: (text) => ref.read(hledaniProvider.notifier).nastav(text),
@@ -88,18 +108,25 @@ class ElektromeryObrazovka extends ConsumerWidget {
         const SizedBox(height: 14),
         // Zkratka přes celou šířku: sken QR je hlavní cesta k zápisu,
         // seznam pod ním zůstává pro případ, že kód chybí.
+        //
+        // Skener hledá ve všech místech pobočky, ne jen ve zvoleném druhu –
+        // kdo naskenuje plynoměr s filtrem na elektřinu, chce plynoměr.
         PrimarniTlacitko(
-          popisek: 'Načíst elektroměr',
+          popisek: 'Načíst odběrné místo',
           ikona: Icons.qr_code_scanner,
           onTap: () => _skenuj(context, ref, elektromery.value ?? const []),
         ),
+        if (chybejici.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _VychoziSeznam(chybejici: chybejici),
+        ],
         const SizedBox(height: 16),
         switch (elektromery) {
           AsyncError() => ChybovyBlok(
-            zprava: 'Elektroměry se nepodařilo načíst.',
+            zprava: 'Odběrná místa se nepodařilo načíst.',
             onZkusitZnovu: () => ref.invalidate(elektromeryProvider),
           ),
-          AsyncData(:final value) => _Seznam(vsechny: value, dotaz: dotaz),
+          AsyncData() => _Seznam(vsechny: zobrazena, dotaz: dotaz, druh: druh),
           _ => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
             child: Center(child: CircularProgressIndicator()),
@@ -120,7 +147,7 @@ Future<void> _skenuj(
   if (evidence.isEmpty) {
     ukazVarovani(
       context,
-      'Na této pobočce zatím není žádný elektroměr, který by šlo načíst.',
+      'Na této pobočce zatím není žádné odběrné místo, které by šlo načíst.',
     );
     return;
   }
@@ -136,16 +163,25 @@ Future<void> _skenuj(
   // U čísla ze štítku je identifikace odhad, ne jistota – ať člověk
   // vidí, co se mu načetlo, než začne fotit počítadlo.
   if (nalez.zpusob == ZpusobNalezeni.cisloZeStitku) {
-    ukazInfo(context, 'Načteno: ${nalez.elektromer.nazev}');
+    ukazInfo(
+      context,
+      'Načteno: ${nalez.elektromer.druh.nazev} · ${nalez.elektromer.nazev}',
+    );
   }
   await otevriZapisOdectu(context, ref, nalez.elektromer);
 }
 
 class _Seznam extends StatelessWidget {
-  const _Seznam({required this.vsechny, required this.dotaz});
+  const _Seznam({
+    required this.vsechny,
+    required this.dotaz,
+    required this.druh,
+  });
 
+  /// Místa zvoleného druhu, nebo všechna, když je [druh] `null`.
   final List<Elektromer> vsechny;
   final String dotaz;
+  final DruhMista? druh;
 
   @override
   Widget build(BuildContext context) {
@@ -169,34 +205,42 @@ class _Seznam extends StatelessWidget {
         if (!e.aktivni) e,
     ];
 
+    final zvoleny = druh;
     if (vsechny.isEmpty) {
-      return const PrazdnyStav(
-        text:
-            'Na této pobočce zatím není žádný elektroměr.\n'
-            'Přidejte ho tlačítkem nahoře.',
-        ikona: Icons.electric_meter_outlined,
+      return PrazdnyStav(
+        text: zvoleny == null
+            ? 'Na této pobočce zatím není žádné odběrné místo.\n'
+                  'Přidejte ho tlačítkem nahoře.'
+            : 'Druh „${zvoleny.nazev}“ tu zatím nemá žádné místo.\n'
+                  'Přidejte ho tlačítkem nahoře.',
+        ikona: zvoleny == null
+            ? Icons.electric_meter_outlined
+            : ikonaDruhu(zvoleny),
       );
     }
     if (nalezene.isEmpty) {
       return const PrazdnyStav(
-        text: 'Hledání neodpovídá žádný elektroměr.',
+        text: 'Hledání neodpovídá žádné odběrné místo.',
         ikona: Icons.search_off,
       );
     }
 
+    // U výběru „vše" je druh vidět na řádku, jinak by se tři „Servisy"
+    // pod sebou nedaly rozlišit.
+    final ukazDruh = zvoleny == null;
     return Column(
       children: [
         if (zbyva.isNotEmpty) ...[
-          const NadpisSekce('Zbývá tento měsíc'),
-          for (final e in zbyva) _Radek(elektromer: e),
+          NadpisSekce('Zbývá tento měsíc · ${zbyva.length}'),
+          for (final e in zbyva) _Radek(elektromer: e, ukazDruh: ukazDruh),
         ],
         if (hotovo.isNotEmpty) ...[
-          const NadpisSekce('Hotovo'),
-          for (final e in hotovo) _Radek(elektromer: e),
+          NadpisSekce('Hotovo · ${hotovo.length}'),
+          for (final e in hotovo) _Radek(elektromer: e, ukazDruh: ukazDruh),
         ],
         if (vyrazene.isNotEmpty) ...[
           const NadpisSekce('Vyřazené'),
-          for (final e in vyrazene) _Radek(elektromer: e),
+          for (final e in vyrazene) _Radek(elektromer: e, ukazDruh: ukazDruh),
         ],
       ],
     );
@@ -204,15 +248,20 @@ class _Seznam extends StatelessWidget {
 }
 
 class _Radek extends ConsumerWidget {
-  const _Radek({required this.elektromer});
+  const _Radek({required this.elektromer, required this.ukazDruh});
 
   final Elektromer elektromer;
+  final bool ukazDruh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final b = context.barvy;
     final posledni = elektromer.posledniOdecet;
     final hotovo = elektromer.maOdecetZa(DateTime.now());
+    final identifikace = [
+      if (ukazDruh) elektromer.druh.nazev,
+      if (elektromer.maCislo) 'č. ${elektromer.cislo}',
+    ].join(' · ');
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -243,17 +292,20 @@ class _Radek extends ConsumerWidget {
                         color: elektromer.aktivni ? b.text : b.textFaint,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'č. ${elektromer.cislo}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
+                    if (identifikace.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        identifikace,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       posledni == null
                           ? 'zatím bez odečtu'
                           : '${hotovo ? '' : 'naposledy '}'
-                                '${Format.kwh(posledni.hodnota)} kWh · '
+                                '${Format.kwh(posledni.hodnota)} '
+                                '${elektromer.druh.jednotka} · '
                                 '${Format.datum(posledni.odectenoAt)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: hotovo ? b.penize : b.textDim,
@@ -281,6 +333,105 @@ class _Radek extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Filtr podle druhu. U každého druhu je počet míst, ať je hned vidět,
+/// kolik štítků se vytiskne a kolik toho obchůzka obnáší.
+class _FiltrDruhu extends StatelessWidget {
+  const _FiltrDruhu({
+    required this.vybrany,
+    required this.vsechna,
+    required this.onZmena,
+  });
+
+  final DruhMista? vybrany;
+  final List<Elektromer> vsechna;
+  final ValueChanged<DruhMista?> onZmena;
+
+  @override
+  Widget build(BuildContext context) {
+    int pocet(DruhMista d) => vsechna.where((e) => e.druh == d).length;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ChoiceChip(
+          label: Text('Vše · ${vsechna.length}'),
+          selected: vybrany == null,
+          onSelected: (_) => onZmena(null),
+        ),
+        for (final d in DruhMista.values)
+          ChoiceChip(
+            avatar: Icon(ikonaDruhu(d), size: 18),
+            label: Text('${d.nazev} · ${pocet(d)}'),
+            selected: vybrany == d,
+            // Druhé klepnutí na vybraný druh filtr zruší.
+            onSelected: (zapnout) => onZmena(zapnout ? d : null),
+          ),
+      ],
+    );
+  }
+}
+
+/// Nabídka založit místa z výchozího seznamu, dokud některá v evidenci
+/// chybí. Po založení všech zmizí sama – porovnává se podle pevných ID.
+class _VychoziSeznam extends ConsumerWidget {
+  const _VychoziSeznam({required this.chybejici});
+
+  final List<VychoziMisto> chybejici;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stav = ref.watch(elektromeryControllerProvider);
+    final pocty = [
+      for (final d in DruhMista.values)
+        if (chybejici.where((m) => m.druh == d).length case final n when n > 0)
+          '${d.nazev.toLowerCase()} $n',
+    ].join(', ');
+
+    return Karta(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Výchozí seznam odběrných míst',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'V evidenci zatím chybí ${chybejici.length} míst ($pocty). '
+            'Založí se bez výrobních čísel – ta jdou doplnit později '
+            'úpravou místa.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          PrimarniTlacitko(
+            popisek: 'Založit ${chybejici.length} míst',
+            ikona: Icons.playlist_add,
+            vyska: Rozmery.dotykMin,
+            nacita: stav.isLoading,
+            onTap: stav.isLoading
+                ? null
+                : () async {
+                    final pocet = await ref
+                        .read(elektromeryControllerProvider.notifier)
+                        .zalozVychozi(chybejici);
+                    if (!context.mounted) return;
+                    if (pocet != null) {
+                      ukazInfo(context, 'Založeno $pocet odběrných míst.');
+                    } else {
+                      ukazChybu(
+                        context,
+                        ref.read(elektromeryControllerProvider).error ??
+                            const NeznamaChyba('Založení se nepovedlo.'),
+                      );
+                    }
+                  },
+          ),
+        ],
       ),
     );
   }

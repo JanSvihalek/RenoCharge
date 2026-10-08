@@ -80,7 +80,7 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
       ukazVarovani(
         context,
         'Číslo ze štítku se nepodařilo spárovat s žádným evidovaným '
-        'elektroměrem. Zkuste to znovu, nebo ho vyberte ze seznamu.',
+        'měřidlem. Zkuste to znovu, nebo ho vyberte ze seznamu.',
       );
     } on FoceniZruseno {
       if (mounted) setState(() => _ctuStitek = false);
@@ -135,7 +135,7 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
                     ),
                     const Expanded(
                       child: Text(
-                        'Namiřte na QR kód elektroměru',
+                        'Namiřte na QR kód odběrného místa',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,

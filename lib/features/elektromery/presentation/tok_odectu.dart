@@ -8,7 +8,8 @@ import '../../nabijeni/presentation/foceni_obrazovka.dart';
 import '../application/odecty_controller.dart';
 import '../domain/elektromer.dart';
 
-/// Zapsání odečtu: fotka počítadla, kontrola hodnoty, zápis.
+/// Zapsání odečtu: fotka počítadla, kontrola hodnoty, zápis. Platí pro
+/// všechny druhy odběrných míst, liší se jen jednotkou.
 ///
 /// Používá **beze změny** tok focení od nabíjení – fotoaparát se otevře
 /// hned, OCR předvyplní hodnotu, pole je vždy přepisovatelné a fotka jde
@@ -19,11 +20,15 @@ Future<void> otevriZapisOdectu(
   Elektromer elektromer,
 ) async {
   final minule = elektromer.posledniOdecet;
+  final jednotka = elektromer.druh.jednotka;
 
   final vysledek = await Navigator.of(context).push<VysledekFoceni>(
     MaterialPageRoute(
-      builder: (_) =>
-          FoceniObrazovka(rezim: RezimFoceni.odecet, kwhStart: minule?.hodnota),
+      builder: (_) => FoceniObrazovka(
+        rezim: RezimFoceni.odecet,
+        kwhStart: minule?.hodnota,
+        jednotka: jednotka,
+      ),
       fullscreenDialog: true,
     ),
   );
@@ -39,7 +44,10 @@ Future<void> otevriZapisOdectu(
   if (!context.mounted) return;
 
   if (povedlo) {
-    ukazInfo(context, 'Odečet ${Format.kwh(vysledek.hodnota)} kWh byl uložen.');
+    ukazInfo(
+      context,
+      'Odečet ${Format.kwh(vysledek.hodnota)} $jednotka byl uložen.',
+    );
     return;
   }
 
@@ -52,7 +60,7 @@ Future<void> otevriZapisOdectu(
   if (AppChyba.zFirebase(chyba) case NizsiNezMinulyOdecet(
     :final minulaHodnota,
   ) when context.mounted) {
-    final vymena = await _potvrditVymenu(context, minulaHodnota);
+    final vymena = await _potvrditVymenu(context, minulaHodnota, jednotka);
     if (vymena != true || !context.mounted) return;
 
     final naDruhy = await ref
@@ -73,7 +81,11 @@ Future<void> otevriZapisOdectu(
   ukazChybu(context, ref.read(odectyControllerProvider).error ?? chyba);
 }
 
-Future<bool?> _potvrditVymenu(BuildContext context, double minula) {
+Future<bool?> _potvrditVymenu(
+  BuildContext context,
+  double minula,
+  String jednotka,
+) {
   return showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -82,8 +94,8 @@ Future<bool?> _potvrditVymenu(BuildContext context, double minula) {
         style: Theme.of(context).textTheme.titleSmall,
       ),
       content: Text(
-        'Minule tu bylo ${Format.kwh(minula)} kWh. Pokud se elektroměr '
-        'vyměnil a počítadlo začalo od nuly, zapíšeme to jako nové '
+        'Minule tu bylo ${Format.kwh(minula)} $jednotka. Pokud se měřidlo '
+        'vyměnilo a počítadlo začalo od nuly, zapíšeme to jako nové '
         'měřidlo. Jinak se prosím vraťte a hodnotu opravte.',
         style: Theme.of(context).textTheme.bodyMedium,
       ),
