@@ -5,6 +5,10 @@ import '../domain/porizena_fotografie.dart';
 
 /// Album v galerii telefonu. Vlastní schválně – po roce obchůzek by
 /// dvanáct set snímků počítadel ve fotkách z dovolené nikdo nechtěl.
+///
+/// Nese původní název aplikace i po přejmenování na RenoEnergy: nové
+/// album by zálohu rozdělilo na dvě a uživatel by starší snímky hledal
+/// jinde než nové.
 const String albumZaloh = 'RenoCharge';
 
 /// Kopie vyfocených počítadel do galerie telefonu.

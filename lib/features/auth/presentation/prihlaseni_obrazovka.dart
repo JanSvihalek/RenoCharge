@@ -92,7 +92,7 @@ class _PrihlaseniObrazovkaState extends ConsumerState<PrihlaseniObrazovka> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'RenoCharge',
+                      'RenoEnergy',
                       style: Theme.of(context).textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 14),

@@ -9,7 +9,7 @@
 	<!-- Název pod ikonou na ploše. Na malých displejích se zkracuje
 	     výpustkou, proto bez dovětků. -->
 	<key>CFBundleDisplayName</key>
-	<string>RenoCharge</string>
+	<string>RenoEnergy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

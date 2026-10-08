@@ -71,7 +71,7 @@ class ReportPdf {
     final e = podklad.elektromer;
     final dokument = pw.Document(
       title: 'Report odběrného místa ${e.druh.nazev} – ${e.nazev}',
-      author: 'RenoCharge',
+      author: 'RenoEnergy',
     );
 
     dokument.addPage(

@@ -113,7 +113,7 @@ jobs:
       - name: Uložení APK
         uses: actions/upload-artifact@v4
         with:
-          name: RenoCharge-apk
+          name: RenoEnergy-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 14
           if-no-files-found: error
@@ -283,7 +283,7 @@ jobs:
       - name: Uložení IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RenoCharge-ipa
+          name: RenoEnergy-ipa
           path: ${{ runner.temp }}/ipa/*.ipa
           retention-days: 14
           if-no-files-found: error

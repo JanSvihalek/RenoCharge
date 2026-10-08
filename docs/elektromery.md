@@ -385,6 +385,20 @@ ho – přepsat cizí `posledni_odecet` se tím nedá.
 V tabulce bylo u elektřiny dvakrát „BDC, Moto" – podle zadavatele
 omylem, založí se jednou.
 
+### Název aplikace
+
+S plynem a klimatizací přestal sedět název RenoCharge. Aplikace se
+pro uživatele jmenuje **RenoEnergy** – pod ikonou, v přepínači
+aplikací, na přihlášení i v PDF. Ikona s bleskem zůstala, k energii
+sedí.
+
+Interní identifikátory zůstaly beze změny: ID aplikace
+`dev.svihalek.renocharge`, balíček `renocharge`, Firebase projekt
+`renocharge`. Uživatel je nevidí a jejich změna by znamenala novou
+aplikaci – novou registraci ve Firebase a přeinstalaci u všech.
+Album záložních fotek v galerii se taky dál jmenuje RenoCharge, aby se
+záloha nerozdělila na dvě.
+
 ## Mimo rozsah
 
 Ceny a fakturace odečtů. Fronta nahrávání pro práci offline – signál je
@@ -419,8 +433,5 @@ dál.
 
 ## Otevřené
 
-* **Název aplikace.** RenoCharge s bleskem v ikoně přestane sedět, až
-  v ní budou i elektroměry. Není to blokující, ale je lepší to rozhodnout
-  dřív, než aplikaci dostane víc lidí.
 * **Kdo zakládá pobočky** – zatím se počítá se správcem v konzoli.
   Pokud jich má přibývat, patří to do aplikace pod roli.

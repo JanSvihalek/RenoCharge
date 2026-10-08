@@ -18,7 +18,7 @@ class NabijeciDenikApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
-      title: 'RenoCharge',
+      title: 'RenoEnergy',
       debugShowCheckedModeBanner: false,
       theme: Motiv.svetly(),
       darkTheme: Motiv.tmavy(),
