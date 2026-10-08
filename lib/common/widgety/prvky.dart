@@ -76,12 +76,21 @@ class VelkyNadpis extends StatelessWidget {
   }
 }
 
-/// Hlavička toku: tlačítko zpět, titulek na střed, vyvážení vpravo.
+/// Hlavička toku: tlačítko zpět, titulek na střed, vpravo volitelná
+/// akce – jinak prázdné místo, aby titulek zůstal uprostřed.
 class HlavickaToku extends StatelessWidget implements PreferredSizeWidget {
-  const HlavickaToku({super.key, required this.titulek, this.onZpet});
+  const HlavickaToku({
+    super.key,
+    required this.titulek,
+    this.onZpet,
+    this.akce,
+  });
 
   final String titulek;
   final VoidCallback? onZpet;
+
+  /// Ikonové tlačítko vpravo, např. úprava záznamu v detailu.
+  final Widget? akce;
 
   @override
   Size get preferredSize => const Size.fromHeight(64);
@@ -112,7 +121,7 @@ class HlavickaToku extends StatelessWidget implements PreferredSizeWidget {
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
-            const SizedBox(width: Rozmery.tlacitkoIkona),
+            SizedBox(width: Rozmery.tlacitkoIkona, child: akce),
           ],
         ),
       ),

@@ -38,6 +38,17 @@ class ElektromerObrazovka extends ConsumerWidget {
             HlavickaToku(
               titulek: 'Odběrné místo',
               onZpet: () => Navigator.of(context).pop(),
+              // Úprava nahoře, ne pod historií: ta s každým měsícem
+              // roste a odkaz pod ní by se časem nedal najít.
+              akce: switch (elektromer) {
+                AsyncData(:final value?) => IkonoveTlacitko(
+                  ikona: Icons.edit_outlined,
+                  popisPristupnosti: 'Upravit odběrné místo',
+                  sOramovanim: false,
+                  onTap: () => _upravit(context, value),
+                ),
+                _ => null,
+              },
             ),
             Expanded(
               child: switch (elektromer) {
@@ -167,20 +178,20 @@ class _Obsah extends ConsumerWidget {
                 elektromery: [elektromer],
               ),
         ),
-        OdkazoveTlacitko(
-          popisek: 'Upravit odběrné místo',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => FormularElektromeru(
-                pobocka: elektromer.pobocka ?? Pobocka.values.first,
-                upravuje: elektromer,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
+}
+
+void _upravit(BuildContext context, Elektromer elektromer) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => FormularElektromeru(
+        pobocka: elektromer.pobocka ?? Pobocka.values.first,
+        upravuje: elektromer,
+      ),
+    ),
+  );
 }
 
 /// Jeden odečet v historii. Spotřeba je dopočítaná proti předchozímu

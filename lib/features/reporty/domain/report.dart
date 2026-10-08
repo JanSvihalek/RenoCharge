@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
+import '../../elektromery/domain/druh_mista.dart';
 import '../../elektromery/domain/elektromer.dart';
 import '../../elektromery/domain/odecet.dart';
+import '../../elektromery/domain/pobocka.dart';
 import '../../nabijeni/domain/relace.dart';
 
 /// Období reportu. Uživatel zadává „od–do" včetně obou dnů, dotaz do
@@ -183,4 +185,125 @@ List<PolozkaOdectu> slozPolozkyOdectu(
     predchoziSpotreba = spotreba;
   }
   return vysledek;
+}
+
+/// Jeden řádek hromadného exportu stavů – jedno odběrné místo za období.
+class RadekStavu {
+  const RadekStavu({
+    required this.misto,
+    this.minuly,
+    this.posledni,
+    this.spotreba,
+    this.zmenaProcent,
+    this.vymenaMeridla = false,
+  });
+
+  final Elektromer misto;
+
+  /// Poslední odečet **před** obdobím – od něj se počítá spotřeba.
+  final Odecet? minuly;
+
+  /// Poslední odečet **v** období. `null`, když se v období neodečítalo –
+  /// i to je v exportu vidět, je to místo, které v obchůzce chybí.
+  final Odecet? posledni;
+
+  /// Spotřeba za období. `null`, když není od čeho počítat.
+  final double? spotreba;
+
+  /// Změna proti spotřebě předchozího období v procentech.
+  final double? zmenaProcent;
+
+  /// V období se měnilo měřidlo – spotřeba je pak jen od výměny dál,
+  /// a proto neúplná.
+  final bool vymenaMeridla;
+}
+
+/// Vše, co potřebuje tabulka stavů pobočky. Bez Firebase i Flutteru.
+class PodkladStavu {
+  const PodkladStavu({
+    required this.pobocka,
+    required this.druh,
+    required this.obdobi,
+    required this.radky,
+    required this.vytvorenoAt,
+  });
+
+  final Pobocka pobocka;
+
+  /// Druh, na který byl export zúžený; `null` znamená všechna místa.
+  final DruhMista? druh;
+  final Obdobi obdobi;
+  final List<RadekStavu> radky;
+  final DateTime vytvorenoAt;
+
+  /// Druhy, které v tabulce opravdu jsou, v pořadí výčtu. Součty se
+  /// dělají po druzích – kWh a m³ se sečíst nedají.
+  List<DruhMista> get druhy => [
+    for (final d in DruhMista.values)
+      if (radky.any((r) => r.misto.druh == d)) d,
+  ];
+
+  double celkemZa(DruhMista druh) => radky
+      .where((r) => r.misto.druh == druh)
+      .fold(0, (soucet, r) => soucet + (r.spotreba ?? 0));
+}
+
+/// Složí řádky exportu stavů.
+///
+/// * [predObdobim] – pro každé místo nejvýš dva poslední odečty před
+///   začátkem období, od nejstaršího.
+/// * [vObdobi] – odečty v období, od nejstaršího.
+///
+/// Spotřeba se počítá stejně jako v reportu jednoho místa, přes
+/// [slozPolozkyOdectu] nad celou řadou – výměna měřidla ji tak přeruší
+/// stejně jako tam. Vyřazená místa jsou v tabulce jen tehdy, když mají
+/// odečet v období; jinak by tabulku zaplevelila prázdnými řádky.
+///
+/// Řadí se podle druhu a pak podle umístění, ať jsou plynoměry pohromadě.
+List<RadekStavu> slozPrehledStavu({
+  required List<Elektromer> mista,
+  required Map<String, List<Odecet>> predObdobim,
+  required Map<String, List<Odecet>> vObdobi,
+}) {
+  final radky = <RadekStavu>[];
+  for (final misto in mista) {
+    final pred = predObdobim[misto.id] ?? const <Odecet>[];
+    final behem = vObdobi[misto.id] ?? const <Odecet>[];
+    if (!misto.aktivni && behem.isEmpty) continue;
+
+    final polozky = slozPolozkyOdectu([...pred, ...behem]);
+    final vObdobiPolozky = polozky.sublist(pred.length);
+    final spocitane = [
+      for (final p in vObdobiPolozky)
+        if (p.spotreba != null) p.spotreba!,
+    ];
+    final spotreba = spocitane.isEmpty
+        ? null
+        : spocitane.fold<double>(0, (a, b) => a + b);
+
+    // Spotřeba minulého období je ta, se kterou přišel poslední odečet
+    // před obdobím – rozdíl proti předposlednímu.
+    final predchozi = pred.isEmpty ? null : polozky[pred.length - 1].spotreba;
+    final zmena = (spotreba != null && predchozi != null && predchozi > 0)
+        ? (spotreba - predchozi) / predchozi * 100
+        : null;
+
+    radky.add(
+      RadekStavu(
+        misto: misto,
+        minuly: pred.isEmpty ? null : pred.last,
+        posledni: behem.isEmpty ? null : behem.last,
+        spotreba: spotreba,
+        zmenaProcent: zmena,
+        vymenaMeridla: behem.any((o) => o.vymenaMeridla),
+      ),
+    );
+  }
+
+  radky.sort((a, b) {
+    final druh = a.misto.druh.index.compareTo(b.misto.druh.index);
+    if (druh != 0) return druh;
+    return a.misto.nazev.toLowerCase().compareTo(b.misto.nazev.toLowerCase());
+  });
+  return radky;
 }

@@ -3,9 +3,10 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
+import '../../../common/formatovani.dart';
 import '../domain/report.dart';
 
-/// Tabulka nabíjení pro Excel.
+/// Tabulky pro Excel: nabíjení a hromadný přehled stavů odběrných míst.
 ///
 /// Soubor se skládá ručně, ne knihovnou: jediný balíček, který XLSX umí
 /// zapisovat, stojí na `archive 3`, zatímco `image` (zmenšování fotek
@@ -30,7 +31,19 @@ abstract final class ReportXlsx {
   /// pod sousední buňku a uživatel by je musel roztahovat ručně.
   static const _sirky = [12.0, 26.0, 20.0, 20.0, 18.0];
 
-  static Uint8List sestav(PodkladReportu podklad) {
+  static Uint8List sestav(PodkladReportu podklad) =>
+      _zabal(nazevListu: 'Nabíjení', list: _list(podklad));
+
+  /// Přehled stavů odběrných míst za období – jeden řádek na místo.
+  ///
+  /// Tohle je tabulka „na kontrolu spotřeby": kdo ji čte, chce vidět
+  /// minulý a nový stav vedle sebe, spotřebu a skok proti minulému
+  /// období. Místa bez odečtu v ní zůstávají s prázdným novým stavem –
+  /// i to je informace, v obchůzce chybí.
+  static Uint8List sestavStavy(PodkladStavu podklad) =>
+      _zabal(nazevListu: 'Stavy', list: _listStavu(podklad));
+
+  static Uint8List _zabal({required String nazevListu, required String list}) {
     final archiv = Archive();
 
     void pridej(String cesta, String obsah) {
@@ -40,13 +53,155 @@ abstract final class ReportXlsx {
 
     pridej('[Content_Types].xml', _typyObsahu);
     pridej('_rels/.rels', _korenoveVztahy);
-    pridej('xl/workbook.xml', _sesit);
+    pridej('xl/workbook.xml', _sesit(nazevListu));
     pridej('xl/_rels/workbook.xml.rels', _vztahySesitu);
     pridej('xl/styles.xml', _styly);
-    pridej('xl/worksheets/sheet1.xml', _list(podklad));
+    pridej('xl/worksheets/sheet1.xml', list);
 
     final zip = ZipEncoder().encodeBytes(archiv);
     return Uint8List.fromList(zip);
+  }
+
+  static const _hlavickaStavu = [
+    'Druh',
+    'Umístění',
+    'Číslo',
+    'Jednotka',
+    'Minulý stav',
+    'Odečteno',
+    'Nový stav',
+    'Odečteno',
+    'Spotřeba',
+    'Změna',
+    'Poznámka',
+  ];
+
+  static const _sirkyStavu = [
+    13.0,
+    26.0,
+    14.0,
+    10.0,
+    14.0,
+    12.0,
+    14.0,
+    12.0,
+    13.0,
+    9.0,
+    30.0,
+  ];
+
+  static String _listStavu(PodkladStavu podklad) {
+    final radky = StringBuffer();
+    var cislo = 1;
+
+    radky.write('<row r="$cislo">');
+    for (var i = 0; i < _hlavickaStavu.length; i++) {
+      radky.write(
+        _text(_adresa(i, cislo), _hlavickaStavu[i], styl: _stylNadpis),
+      );
+    }
+    radky.write('</row>');
+
+    final prvniDatovy = cislo + 1;
+    for (final r in podklad.radky) {
+      cislo++;
+      final m = r.misto;
+      final poznamka = [
+        if (r.posledni == null) 'bez odečtu v období',
+        if (r.vymenaMeridla) 'výměna měřidla – spotřeba jen od výměny',
+        if (!m.aktivni) 'vyřazené',
+        ?r.posledni?.poznamka,
+      ].where((t) => t.isNotEmpty).join('; ');
+      radky
+        ..write('<row r="$cislo">')
+        ..write(_text(_adresa(0, cislo), m.druh.nazev))
+        ..write(_text(_adresa(1, cislo), m.nazev))
+        ..write(m.maCislo ? _text(_adresa(2, cislo), m.cislo) : '')
+        ..write(_text(_adresa(3, cislo), m.druh.jednotka))
+        ..write(_cislo(_adresa(4, cislo), r.minuly?.hodnota))
+        ..write(_datumNebo(_adresa(5, cislo), r.minuly?.odectenoAt))
+        ..write(_cislo(_adresa(6, cislo), r.posledni?.hodnota))
+        ..write(_datumNebo(_adresa(7, cislo), r.posledni?.odectenoAt))
+        ..write(_cislo(_adresa(8, cislo), r.spotreba))
+        ..write(_procenta(_adresa(9, cislo), r.zmenaProcent))
+        ..write(poznamka.isEmpty ? '' : _text(_adresa(10, cislo), poznamka))
+        ..write('</row>');
+    }
+    final posledniDatovy = cislo;
+
+    // Součty po druzích: kWh a m³ dohromady nedávají smysl. SUMIF
+    // místo pevné hodnoty, aby se součet přepočítal po úpravě řádku;
+    // spočítaná hodnota je vedle kvůli náhledům, které vzorce nepočítají.
+    if (podklad.radky.isNotEmpty) cislo++;
+    for (final druh in podklad.druhy) {
+      cislo++;
+      final jednotka = druh.jednotka;
+      radky
+        ..write('<row r="$cislo">')
+        ..write(
+          _text(
+            _adresa(0, cislo),
+            'Celkem ${druh.nazev.toLowerCase()} ($jednotka)',
+            styl: _stylNadpis,
+          ),
+        )
+        ..write(
+          '<c r="${_adresa(8, cislo)}" s="$_stylSoucet">'
+          '<f>SUMIF(A$prvniDatovy:A$posledniDatovy,'
+          '"${_escape(druh.nazev)}",'
+          'I$prvniDatovy:I$posledniDatovy)</f>'
+          '<v>${_zapisCislo(podklad.celkemZa(druh))}</v>'
+          '</c>',
+        )
+        ..write('</row>');
+    }
+
+    // Pod tabulkou, co je to za výřez – po přeposlání mailem to z názvu
+    // souboru nemusí být zřejmé.
+    cislo += 2;
+    radky
+      ..write('<row r="$cislo">')
+      ..write(
+        _text(
+          _adresa(0, cislo),
+          '${podklad.pobocka.popisek}'
+          '${podklad.druh == null ? '' : ' · ${podklad.druh!.nazev}'}'
+          ' · období ${Format.datum(podklad.obdobi.od)} – '
+          '${Format.datum(podklad.obdobi.doVcetne)}'
+          ' · vytvořeno ${Format.datum(podklad.vytvorenoAt)}',
+        ),
+      )
+      ..write('</row>');
+
+    final sloupce = StringBuffer('<cols>');
+    for (var i = 0; i < _sirkyStavu.length; i++) {
+      sloupce.write(
+        '<col min="${i + 1}" max="${i + 1}" '
+        'width="${_sirkyStavu[i]}" customWidth="1"/>',
+      );
+    }
+    sloupce.write('</cols>');
+
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="$_jmennyProstor">'
+        '<sheetViews><sheetView workbookViewId="0">'
+        '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" '
+        'state="frozen"/>'
+        '</sheetView></sheetViews>'
+        '$sloupce'
+        '<sheetData>$radky</sheetData>'
+        '</worksheet>';
+  }
+
+  static String _datumNebo(String adresa, DateTime? kdy) =>
+      kdy == null ? '' : _datum(adresa, kdy);
+
+  /// Změna se ukládá jako podíl a zobrazí ji až formát buňky – Excel
+  /// s ní pak umí počítat a řadit podle ní.
+  static String _procenta(String adresa, double? procenta) {
+    if (procenta == null) return '';
+    final podil = (procenta * 10).round() / 1000;
+    return '<c r="$adresa" s="$_stylProcenta"><v>$podil</v></c>';
   }
 
   static String _list(PodkladReportu podklad) {
@@ -119,7 +274,8 @@ abstract final class ReportXlsx {
         '</worksheet>';
   }
 
-  /// `A1`, `B7` – sloupců je pět, takže se dvoupísmenná adresa neřeší.
+  /// `A1`, `B7` – sloupců je nejvýš jedenáct, takže se dvoupísmenná
+  /// adresa neřeší.
   static String _adresa(int sloupec, int radek) =>
       '${String.fromCharCode(65 + sloupec)}$radek';
 
@@ -167,6 +323,7 @@ abstract final class ReportXlsx {
   static const int _stylCislo = 2;
   static const int _stylSoucet = 3;
   static const int _stylDatum = 4;
+  static const int _stylProcenta = 5;
 
   static const _typyObsahu =
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -189,11 +346,12 @@ abstract final class ReportXlsx {
       'officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
       '</Relationships>';
 
-  static const _sesit =
+  static String _sesit(String nazevListu) =>
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
       '<workbook xmlns="$_jmennyProstor" '
       'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-      '<sheets><sheet name="Nabíjení" sheetId="1" r:id="rId1"/></sheets>'
+      '<sheets><sheet name="${_escape(nazevListu)}" sheetId="1" r:id="rId1"/>'
+      '</sheets>'
       '</workbook>';
 
   /// Sešit musí na styly **odkazovat**. Bez téhle vazby soubor
@@ -226,13 +384,15 @@ abstract final class ReportXlsx {
       '<fill><patternFill patternType="gray125"/></fill></fills>'
       '<borders count="1"><border/></borders>'
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0"/></cellStyleXfs>'
-      '<cellXfs count="5">'
+      '<cellXfs count="6">'
       '<xf numFmtId="0" fontId="0" xfId="0"/>'
       '<xf numFmtId="0" fontId="1" xfId="0" applyFont="1"/>'
       '<xf numFmtId="164" fontId="0" xfId="0" applyNumberFormat="1"/>'
       '<xf numFmtId="164" fontId="1" xfId="0" '
       'applyNumberFormat="1" applyFont="1"/>'
       '<xf numFmtId="165" fontId="0" xfId="0" applyNumberFormat="1"/>'
+      // 9 je vestavěný formát „0%".
+      '<xf numFmtId="9" fontId="0" xfId="0" applyNumberFormat="1"/>'
       '</cellXfs>'
       '</styleSheet>';
 }

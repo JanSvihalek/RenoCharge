@@ -12,8 +12,10 @@ import '../../../common/chyby.dart';
 import '../../../common/formatovani.dart';
 import '../../auth/application/auth_providery.dart';
 import '../../elektromery/application/odecty_controller.dart';
+import '../../elektromery/domain/druh_mista.dart';
 import '../../elektromery/domain/elektromer.dart';
 import '../../elektromery/domain/odecet.dart';
+import '../../elektromery/domain/pobocka.dart';
 import '../../nabijeni/application/nabijeni_providery.dart';
 import '../../nabijeni/domain/relace.dart';
 import '../../vozidla/application/vozidla_providery.dart';
@@ -266,6 +268,87 @@ class ReportController extends Notifier<StavReportu> {
 
       state = const ReportPripraven();
       return polozky.length;
+    } catch (chyba) {
+      state = ReportChyba(AppChyba.zFirebase(chyba));
+      return null;
+    }
+  }
+
+  /// Hromadný export stavů odběrných míst do Excelu – jeden řádek na
+  /// místo, s minulým a novým stavem, spotřebou a změnou.
+  ///
+  /// [mista] jsou ta, která uživatel zrovna vidí v seznamu (pobočka
+  /// a případně druh). Vrací počet míst, která mají v období odečet,
+  /// nebo `null` při chybě.
+  Future<int?> vytvorStavy({
+    required Pobocka pobocka,
+    required DruhMista? druh,
+    required List<Elektromer> mista,
+    required Obdobi obdobi,
+  }) async {
+    if (probiha) return null;
+
+    try {
+      state = const ReportNacitaZaznamy();
+      final repo = ref.read(odectyRepositoryProvider);
+
+      // Odečty v období jedním dotazem za celou pobočku. Minulé stavy
+      // ale musí jít po místech: „poslední odečet před obdobím" je
+      // u každého místa jindy a dotaz na pobočku by musel stáhnout celou
+      // historii. Dotazy na místa běží souběžně, každý vrátí dva záznamy.
+      final idcka = {for (final m in mista) m.id};
+      final vObdobi = <String, List<Odecet>>{};
+      for (final o in await repo.nactiPobockuZaObdobi(
+        pobockaKod: pobocka.kod,
+        od: obdobi.od,
+        doKonce: obdobi.doExkluzivne,
+      )) {
+        if (idcka.contains(o.elektromerId)) {
+          vObdobi.putIfAbsent(o.elektromerId, () => []).add(o);
+        }
+      }
+      final predObdobim = {
+        for (final (id, odecty) in await Future.wait([
+          for (final m in mista)
+            repo
+                .nactiPred(elektromerId: m.id, pred: obdobi.od)
+                .then((odecty) => (m.id, odecty)),
+        ]))
+          id: odecty,
+      };
+
+      state = const ReportSestavuje();
+      final podklad = PodkladStavu(
+        pobocka: pobocka,
+        druh: druh,
+        obdobi: obdobi,
+        radky: slozPrehledStavu(
+          mista: mista,
+          predObdobim: predObdobim,
+          vObdobi: vObdobi,
+        ),
+        vytvorenoAt: DateTime.now(),
+      );
+      final bajty = ReportXlsx.sestavStavy(podklad);
+
+      final popis = druh == null ? pobocka.kod : '${pobocka.kod} ${druh.nazev}';
+      final soubor = File(
+        '${(await getTemporaryDirectory()).path}/'
+        '${nazevSouboru(popis, obdobi, predpona: 'stavy', pripona: 'xlsx')}',
+      );
+      await soubor.writeAsBytes(bajty, flush: true);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(soubor.path, mimeType: _mimeXlsx)],
+          subject:
+              'Stavy odběrných míst · $popis · '
+              '${Format.datum(obdobi.od)} – ${Format.datum(obdobi.doVcetne)}',
+        ),
+      );
+
+      state = const ReportPripraven();
+      return vObdobi.length;
     } catch (chyba) {
       state = ReportChyba(AppChyba.zFirebase(chyba));
       return null;

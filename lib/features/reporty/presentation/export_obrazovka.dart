@@ -7,7 +7,9 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/hlaseni.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
+import '../../elektromery/domain/druh_mista.dart';
 import '../../elektromery/domain/elektromer.dart';
+import '../../elektromery/domain/pobocka.dart';
 import '../application/exporty_providery.dart';
 import '../application/report_controller.dart';
 import '../domain/report.dart';
@@ -16,14 +18,18 @@ import '../domain/zaznam_exportu.dart';
 /// Výběr období a vytvoření PDF reportu. Hotové PDF se předá
 /// systémovému sdílení, odkud se dá poslat mailem.
 ///
-/// Jedna obrazovka pro obojí: bez [elektromer] vyrobí report vlastních
-/// nabíjení, s ním report toho elektroměru. Pro uživatele je to tatáž
-/// operace, jen nad jinými daty – dvě skoro stejné obrazovky by se
-/// časem rozešly.
+/// Jedna obrazovka pro všechny exporty: bez parametrů vyrobí report
+/// vlastních nabíjení, s [elektromer] report jednoho odběrného místa
+/// a se [stavy] tabulku stavů všech zobrazených míst. Pro uživatele je
+/// to tatáž operace, jen nad jinými daty – tři skoro stejné obrazovky
+/// by se časem rozešly.
 class ExportObrazovka extends ConsumerStatefulWidget {
-  const ExportObrazovka({super.key, this.elektromer});
+  const ExportObrazovka({super.key, this.elektromer, this.stavy});
 
   final Elektromer? elektromer;
+
+  /// Místa pro hromadný export stavů – to, co je zrovna vidět v seznamu.
+  final ({Pobocka pobocka, DruhMista? druh, List<Elektromer> mista})? stavy;
 
   @override
   ConsumerState<ExportObrazovka> createState() => _ExportObrazovkaState();
@@ -65,6 +71,24 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
     final rizeni = ref.read(reportControllerProvider.notifier);
     final elektromer = widget.elektromer;
 
+    if (widget.stavy case final stavy?) {
+      final sOdectem = await rizeni.vytvorStavy(
+        pobocka: stavy.pobocka,
+        druh: stavy.druh,
+        mista: stavy.mista,
+        obdobi: _obdobi,
+      );
+      // Tabulka vznikne i tak – minulé stavy a seznam míst bez odečtu
+      // jsou užitečné samy o sobě. Jen ať je jasné, proč je prázdná.
+      if (mounted && sOdectem == 0) {
+        ukazVarovani(
+          context,
+          'Ve zvoleném období není u těchto míst žádný odečet.',
+        );
+      }
+      return;
+    }
+
     final pocet = switch ((elektromer, _format)) {
       (final e?, _) => await rizeni.vytvorProElektromer(
         elektromer: e,
@@ -93,9 +117,11 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
     final probiha = ref.read(reportControllerProvider.notifier).probiha;
     // Poslední report se hlídá jen u nabíjení – u elektroměru se exportuje
     // podle potřeby, ne měsíc po měsíci bez děr.
-    final posledni = widget.elektromer == null
-        ? ref.watch(posledniExportProvider)
-        : null;
+    final stavy = widget.stavy;
+    final jeNabijeni = widget.elektromer == null && stavy == null;
+    final posledni = jeNabijeni ? ref.watch(posledniExportProvider) : null;
+    // Stavy jsou jen tabulka – fotky ani volba formátu tu nemají smysl.
+    final sFotkamiVolba = _format == _Format.pdf && stavy == null;
 
     return Scaffold(
       backgroundColor: b.bg,
@@ -104,9 +130,11 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
         child: Column(
           children: [
             HlavickaToku(
-              titulek: widget.elektromer == null
-                  ? 'Export nabíjení'
-                  : 'Export odečtů',
+              titulek: switch ((widget.elektromer, stavy)) {
+                (_, _?) => 'Export stavů',
+                (_?, _) => 'Export odečtů',
+                _ => 'Export nabíjení',
+              },
               onZpet: probiha ? null : () => Navigator.of(context).pop(),
             ),
             Expanded(
@@ -139,6 +167,35 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                       ),
                     ),
                   ],
+                  if (stavy != null) ...[
+                    const NadpisSekce('Odběrná místa'),
+                    Karta(
+                      child: Column(
+                        children: [
+                          RadekDat(
+                            popisek: 'Pobočka',
+                            hodnota: stavy.pobocka.popisek,
+                          ),
+                          RadekDat(
+                            popisek: 'Druh',
+                            hodnota: stavy.druh?.nazev ?? 'všechny',
+                          ),
+                          RadekDat(
+                            popisek: 'Počet míst',
+                            hodnota: '${stavy.mista.length}',
+                            posledni: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Excel s jedním řádkem na místo: minulý a nový stav, '
+                      'spotřeba za období a změna proti minulému. Místa '
+                      'bez odečtu v období v tabulce zůstanou.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                   const NadpisSekce('Období'),
                   _RychlaVolba(
                     obdobi: _obdobi,
@@ -168,7 +225,7 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
                     popisek: 'Zvolit jiné období',
                     onTap: probiha ? null : _vyberObdobi,
                   ),
-                  if (widget.elektromer == null) ...[
+                  if (jeNabijeni) ...[
                     const NadpisSekce('Formát'),
                     _VolbaFormatu(
                       vybrany: _format,
@@ -180,7 +237,7 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
 
                   // Fotky jsou jen v PDF. Do tabulky nepatří a přepínač,
                   // který na výsledek nemá vliv, jen mate.
-                  if (_format == _Format.pdf) ...[
+                  if (sFotkamiVolba) ...[
                     const NadpisSekce('Obsah'),
                     Karta(
                       padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
@@ -215,7 +272,7 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
             _Pata(
               probiha: probiha,
               onVytvorit: _vytvor,
-              popisek: widget.elektromer == null && _format == _Format.xlsx
+              popisek: stavy != null || (jeNabijeni && _format == _Format.xlsx)
                   ? 'Vytvořit tabulku'
                   : 'Vytvořit PDF',
             ),
@@ -360,7 +417,7 @@ class _Prubeh extends StatelessWidget {
         'Stahuji fotografie $hotovo z $celkem…',
         podil,
       ),
-      ReportSestavuje() => ('Sestavuji PDF…', null),
+      ReportSestavuje() => ('Sestavuji soubor…', null),
       _ => (null, null),
     };
     if (text == null) return const SizedBox.shrink();

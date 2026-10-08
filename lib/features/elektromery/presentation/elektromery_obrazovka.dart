@@ -14,6 +14,7 @@ import '../domain/elektromer.dart';
 import '../domain/pobocka.dart';
 import '../domain/vychozi_mista.dart';
 import '../../reporty/application/report_controller.dart';
+import '../../reporty/presentation/export_obrazovka.dart';
 import '../domain/identifikace.dart';
 import 'elektromer_obrazovka.dart';
 import 'formular_elektromeru.dart';
@@ -73,6 +74,26 @@ class ElektromeryObrazovka extends ConsumerWidget {
                   if (context.mounted && pocet == 0) {
                     ukazVarovani(context, 'Zatím tu není co oštítkovat.');
                   }
+                },
+              ),
+              const SizedBox(width: 8),
+              // Export bere stejný výřez jako štítky – co je vidět,
+              // to se exportuje.
+              IkonoveTlacitko(
+                ikona: Icons.table_chart_outlined,
+                popisPristupnosti: 'Export stavů do Excelu',
+                onTap: () {
+                  if (zobrazena.isEmpty) {
+                    ukazVarovani(context, 'Zatím tu není co exportovat.');
+                    return;
+                  }
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ExportObrazovka(
+                        stavy: (pobocka: pobocka, druh: druh, mista: zobrazena),
+                      ),
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: 8),

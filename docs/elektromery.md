@@ -329,8 +329,32 @@ Na kontrolu spotřeby je klíčová právě **ta změna v procentech** – skoko
 nárůst je ten signál, kvůli kterému se to celé čte.
 
 Vedle PDF **i tabulka do Excelu**. Kdo hlídá spotřebu, bude chtít data
-k dopočítání. U nabíjení už XLSX je (datum, vozidlo, stavy počítadla,
-součet), u elektroměrů zatím ne.
+k dopočítání.
+
+### Hromadný export stavů
+
+Ikona tabulky v hlavičce seznamu míst vyrobí Excel za zvolené období
+pro **to, co je zrovna vidět** – pobočku a případně jeden druh, stejně
+jako u QR štítků. Jeden řádek na místo:
+
+*druh · umístění · číslo · jednotka · minulý stav a datum · nový stav
+a datum · spotřeba · změna v % · poznámka*
+
+* **Minulý stav** je poslední odečet *před* obdobím, **nový** poslední
+  odečet *v* něm. Víc odečtů v období se do spotřeby sečte.
+* **Změna** je proti spotřebě minulého období (rozdíl dvou posledních
+  odečtů před obdobím). Ukládá se jako podíl s formátem procent, takže
+  se podle ní dá v Excelu řadit.
+* **Místa bez odečtu v období zůstávají** s prázdným novým stavem
+  a poznámkou – to je přesně ten seznam „co v obchůzce chybí".
+  Vyřazená místa jen tehdy, když v období odečet mají.
+* **Součty po druzích** (`SUMIF`), ne jeden za všechno – kWh a m³ se
+  sečíst nedají.
+
+Odečty v období se načtou jedním dotazem za pobočku. Minulé stavy jdou
+po místech (dva záznamy na místo, souběžně): poslední odečet před
+obdobím je u každého místa jindy a dotaz na pobočku by musel stáhnout
+celou historii. Oba dotazy mají index.
 
 XLSX se skládá ručně, ne knihovnou: jediný balíček, který ho umí
 zapisovat, stojí na `archive 3`, zatímco `image` (zmenšování fotek
@@ -424,8 +448,9 @@ poboček a rolí v aplikaci; obojí dělá správce v konzoli.
    čeká na to, co je na štítcích doopravdy.
 4. **Rozpracováno.** Report jednoho elektroměru do PDF je hotový –
    z detailu, s výběrem období a volitelnými fotkami, tabulka nese stav,
-   spotřebu a změnu proti minulému období v procentech. Zbývá report za
-   celou pobočku a CSV.
+   spotřebu a změnu proti minulému období v procentech. Hromadný export
+   stavů pobočky do Excelu je hotový, viz výš. Zbývá souhrnné PDF za
+   pobočku.
 
 **Pilot na jedné pobočce.** První měsíc je stejně o stavbě seznamu –
 vyladit to tam, kam se dá dojít pro zpětnou vazbu, a teprve pak pustit

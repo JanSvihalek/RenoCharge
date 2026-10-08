@@ -61,6 +61,50 @@ class OdectyRepository {
     }
   }
 
+  /// Všechny odečty pobočky za období, od nejstaršího – podklad pro
+  /// hromadný export stavů. Jeden dotaz místo jednoho na každé místo;
+  /// index `pobocka_id` + `odecteno_at` na to kolekce má.
+  Future<List<Odecet>> nactiPobockuZaObdobi({
+    required String pobockaKod,
+    required DateTime od,
+    required DateTime doKonce,
+  }) async {
+    try {
+      final snimek = await _odecty
+          .where('pobocka_id', isEqualTo: pobockaKod)
+          .where('odecteno_at', isGreaterThanOrEqualTo: Timestamp.fromDate(od))
+          .where('odecteno_at', isLessThan: Timestamp.fromDate(doKonce))
+          .orderBy('odecteno_at', descending: true)
+          .get();
+      return [for (final doc in snimek.docs.reversed) Odecet.zDokumentu(doc)];
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
+
+  /// Poslední odečty místa před daným okamžikem, od nejstaršího.
+  ///
+  /// Dva, ne jeden: poslední je „minulý stav", od kterého se počítá
+  /// spotřeba v období, a předposlední je potřeba na spotřebu minulého
+  /// období – proti ní se počítá změna v procentech.
+  Future<List<Odecet>> nactiPred({
+    required String elektromerId,
+    required DateTime pred,
+    int pocet = 2,
+  }) async {
+    try {
+      final snimek = await _odecty
+          .where('elektromer_id', isEqualTo: elektromerId)
+          .where('odecteno_at', isLessThan: Timestamp.fromDate(pred))
+          .orderBy('odecteno_at', descending: true)
+          .limit(pocet)
+          .get();
+      return [for (final doc in snimek.docs.reversed) Odecet.zDokumentu(doc)];
+    } catch (chyba) {
+      throw AppChyba.zFirebase(chyba);
+    }
+  }
+
   /// Zapíše odečet a zároveň ho promítne do elektroměru.
   ///
   /// Transakcí, ne dávkou: dva údržbáři u jednoho elektroměru současně
