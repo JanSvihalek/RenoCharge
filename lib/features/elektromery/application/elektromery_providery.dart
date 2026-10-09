@@ -50,6 +50,20 @@ final vybranyDruhProvider = NotifierProvider<VybranyDruh, DruhMista?>(
   VybranyDruh.new,
 );
 
+/// Ukázat jen místa, která v poslední obchůzce ještě nemají odečet.
+/// Výchozí je celý seznam – zúžení je pomůcka pro toho, kdo zrovna
+/// obchází, ne výchozí pohled.
+class JenNeodectene extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void prepni() => state = !state;
+}
+
+final jenNeodecteneProvider = NotifierProvider<JenNeodectene, bool>(
+  JenNeodectene.new,
+);
+
 /// Místa z výchozího seznamu, která na zvolené pobočce ještě nejsou.
 /// Dokud nějaké chybí, nabízí seznam jejich založení.
 ///

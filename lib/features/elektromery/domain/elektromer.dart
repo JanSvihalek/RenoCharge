@@ -57,10 +57,6 @@ class Elektromer {
 
   Pobocka? get pobocka => Pobocka.zKodu(pobockaKod);
 
-  /// Má elektroměr odečet za daný měsíc? Podle toho se v seznamu dělí
-  /// na „zbývá" a „hotovo".
-  bool maOdecetZa(DateTime mesic) => posledniOdecet?.jeZMesice(mesic) ?? false;
-
   /// Text, ve kterém se v seznamu hledá – číslo, umístění i druh
   /// dohromady. Při osmdesáti kusech je hledání podmínka použitelnosti.
   String get hledanyText => '$cislo $nazev ${druh.nazev}'.toLowerCase();

@@ -161,6 +161,27 @@ rozejít se skutečností.
 * **Přidání elektroměru patří sem**, ne do nastavení – první měsíc bude
   celý o tom, že se seznam teprve staví.
 
+> **Změna (říjen 2026):** rozdělení na *Zbývá* a *Hotovo* z návrhu
+> výše se v praxi ukázalo jako matoucí. Řádky po zápisu přeskakovaly,
+> prvního v měsíci se všechno vrátilo do „zbývá" (i co se odečetlo
+> 30.) a na začátku obchůzky to vypadalo jako 76 dlužných úkolů.
+>
+> Seznam má teď **pevné pořadí** – druh, pak umístění – a stav je jen
+> značka na řádku: datum posledního odečtu, zeleně a s fajfkou, když
+> patří do poslední obchůzky. Nad seznamem je jeden řádek *„Obchůzka
+> od 1. 10.: odečteno 23 z 76"* a přepínač *Jen neodečtené* pro toho,
+> kdo zrovna obchází.
+>
+> **Obchůzka se neváže na kalendářní měsíc.** Místa se odečítají
+> jednou měsíčně naráz, ale nemusí to být uvnitř měsíce. Obchůzka je
+> proto nejnovější odečet na pobočce a vše, co se odečetlo do 20 dnů
+> před ním ([obchuzka.dart](../lib/features/elektromery/domain/obchuzka.dart)).
+> Dvacet, ne méně, aby odečet navíc mezi obchůzkami nezačal novou
+> „obchůzku 1 z 76".
+>
+> Pobočka a druh jsou dva rozbalovací seznamy vedle sebe; řada čipů
+> s druhy zabírala na telefonu dva řádky.
+
 ### 2. Detail elektroměru
 
 Otevře se klepnutím na řádek. Obsahuje:

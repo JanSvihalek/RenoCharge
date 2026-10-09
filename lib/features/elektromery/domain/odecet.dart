@@ -18,13 +18,6 @@ class PosledniOdecet {
   final DateTime odectenoAt;
   final String odecetId;
 
-  /// Je odečet z daného měsíce? Podle toho se v seznamu pozná, co
-  /// v obchůzce ještě zbývá.
-  bool jeZMesice(DateTime mesic) {
-    final kdy = odectenoAt.toLocal();
-    return kdy.year == mesic.year && kdy.month == mesic.month;
-  }
-
   Map<String, dynamic> naMapu() => {
     'hodnota': hodnota,
     'odecteno_at': Timestamp.fromDate(odectenoAt),

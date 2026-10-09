@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:renocharge/features/auth/domain/uzivatel.dart';
 import 'package:renocharge/features/elektromery/domain/elektromer.dart';
+import 'package:renocharge/features/elektromery/domain/obchuzka.dart';
 import 'package:renocharge/features/elektromery/domain/odecet.dart';
 import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
 import 'package:renocharge/features/elektromery/domain/pobocka.dart';
@@ -183,40 +184,67 @@ void _testyOdectu() {
     });
   });
 
-  group('stav obchůzky', () {
-    Elektromer sOdectem(DateTime? kdy) => Elektromer(
-      id: 'e1',
+  group('poslední obchůzka', () {
+    var poradi = 0;
+    Elektromer sOdectem(DateTime? kdy, {bool aktivni = true}) => Elektromer(
+      id: 'e${poradi++}',
       pobockaKod: 'BSL',
-      cislo: '1',
+      cislo: '',
       nazev: 'Kotelna',
+      aktivni: aktivni,
       posledniOdecet: kdy == null
           ? null
           : PosledniOdecet(hodnota: 100, odectenoAt: kdy, odecetId: 'o1'),
     );
 
-    test('elektroměr bez odečtu je vždy nehotový', () {
-      expect(sOdectem(null).maOdecetZa(DateTime(2026, 8, 4)), isFalse);
+    test('bez jediného odečtu žádná obchůzka není', () {
+      expect(Obchuzka.posledni([sOdectem(null), sOdectem(null)]), isNull);
     });
 
-    test('odečet z téhož měsíce znamená hotovo', () {
-      expect(
-        sOdectem(DateTime(2026, 8, 1)).maOdecetZa(DateTime(2026, 8, 31)),
-        isTrue,
-      );
+    test('začíná prvním odečtem, který k ní patří', () {
+      final obchuzka = Obchuzka.posledni([
+        sOdectem(DateTime(2026, 10, 2)),
+        sOdectem(DateTime(2026, 10, 1, 8)),
+        sOdectem(DateTime(2026, 10, 3)),
+      ])!;
+      expect(obchuzka.od, DateTime(2026, 10, 1, 8));
     });
 
-    test('odečet z minulého měsíce nestačí', () {
-      expect(
-        sOdectem(DateTime(2026, 7, 31)).maOdecetZa(DateTime(2026, 8, 1)),
-        isFalse,
-      );
+    // Tohle byl důvod, proč „hotovo" přestalo být podle měsíce: obchůzka
+    // přes konec měsíce je pořád jedna obchůzka.
+    test('obchůzka přes konec měsíce zůstane celá', () {
+      final zari = sOdectem(DateTime(2026, 9, 29));
+      final rijen = sOdectem(DateTime(2026, 10, 2));
+      final obchuzka = Obchuzka.posledni([zari, rijen])!;
+
+      expect(obchuzka.zahrnuje(zari), isTrue);
+      expect(obchuzka.zahrnuje(rijen), isTrue);
+      expect(obchuzka.od, DateTime(2026, 9, 29));
     });
 
-    test('stejný měsíc jiného roku nestačí', () {
-      expect(
-        sOdectem(DateTime(2025, 8, 4)).maOdecetZa(DateTime(2026, 8, 4)),
-        isFalse,
-      );
+    test('odečty z minulé obchůzky do nové nepatří', () {
+      final minule = sOdectem(DateTime(2026, 9, 2));
+      final ted = sOdectem(DateTime(2026, 10, 1));
+      final obchuzka = Obchuzka.posledni([minule, ted])!;
+
+      expect(obchuzka.zahrnuje(minule), isFalse);
+      expect(obchuzka.zahrnuje(ted), isTrue);
+      expect(obchuzka.od, DateTime(2026, 10, 1));
+    });
+
+    test('místo bez odečtu do obchůzky nepatří', () {
+      final bez = sOdectem(null);
+      final obchuzka = Obchuzka.posledni([bez, sOdectem(DateTime(2026, 10))])!;
+      expect(obchuzka.zahrnuje(bez), isFalse);
+    });
+
+    // Starý odečet vyřazeného místa nesmí obchůzku natáhnout dozadu.
+    test('vyřazená místa obchůzku neurčují', () {
+      final obchuzka = Obchuzka.posledni([
+        sOdectem(DateTime(2027), aktivni: false),
+        sOdectem(DateTime(2026, 10, 1)),
+      ])!;
+      expect(obchuzka.od, DateTime(2026, 10, 1));
     });
   });
 }
