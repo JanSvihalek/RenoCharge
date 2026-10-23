@@ -167,7 +167,9 @@ service cloud.firestore {
         && nova().keys().hasAll(['pobocka_id', 'cislo', 'nazev', 'aktivni'])
         && nova().pobocka_id is string
         && nova().pobocka_id.size() > 0
-        && druh(nova()) in ['elektrina', 'plyn', 'klimatizace', 'nabijecka']
+        && druh(nova()) in [
+          'elektrina', 'plyn', 'klimatizace', 'nabijecka', 'voda'
+        ]
         // Výrobní číslo smí být prázdné – výchozí seznam míst ho nemá
         // a místo se pozná podle QR.
         && nova().cislo is string

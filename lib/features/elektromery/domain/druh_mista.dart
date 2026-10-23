@@ -10,7 +10,8 @@ enum DruhMista {
   /// Elektroměr na klimatizační jednotce – měří se elektřina, ale firma
   /// ji vede jako samostatnou skupinu.
   klimatizace('klimatizace', 'Klimatizace', 'kWh'),
-  nabijecka('nabijecka', 'Nabíječky', 'kWh');
+  nabijecka('nabijecka', 'Nabíječky', 'kWh'),
+  voda('voda', 'Voda', 'm³');
 
   const DruhMista(this.klic, this.nazev, this.jednotka);
 

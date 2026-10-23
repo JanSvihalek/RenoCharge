@@ -43,7 +43,11 @@ class VychoziMisto {
 /// formulářem.
 ///
 /// V tabulce bylo „BDC, Moto" u elektřiny dvakrát – podle zadavatele
-/// omylem, je tu jednou.
+/// omylem, je tu jednou. Vodoměry přibyly v druhé verzi tabulky
+/// (říjen 2026); názvy jsou přesně podle ní, i „BMW salon" s malým s.
+///
+/// Pevná ID se odvozují z druhu a názvu, takže doplnění dalších míst
+/// stávající nezdvojí – karta v aplikaci nabídne jen ta chybějící.
 const List<VychoziMisto> vychoziMista = [
   // ── Plyn ──
   VychoziMisto(Pobocka.bsl, DruhMista.plyn, 'HP Řípská'),
@@ -128,4 +132,15 @@ const List<VychoziMisto> vychoziMista = [
   VychoziMisto(Pobocka.bsl, DruhMista.nabijecka, 'Klempírna'),
   VychoziMisto(Pobocka.bsl, DruhMista.nabijecka, 'Předávačka'),
   VychoziMisto(Pobocka.bsl, DruhMista.nabijecka, 'ČEZ Brno'),
+
+  // ── Voda ──
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Servis'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'BMW salon'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Bistro kuchyň'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Bistro WC'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Myčka aut'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Premium'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'OMKO'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Patro Šmahova'),
+  VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Drážní nájemník'),
 ];

@@ -8,4 +8,5 @@ IconData ikonaDruhu(DruhMista druh) => switch (druh) {
   DruhMista.plyn => Icons.local_fire_department_outlined,
   DruhMista.klimatizace => Icons.ac_unit,
   DruhMista.nabijecka => Icons.ev_station_outlined,
+  DruhMista.voda => Icons.water_drop_outlined,
 };

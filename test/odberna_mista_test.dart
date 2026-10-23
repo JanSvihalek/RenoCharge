@@ -64,7 +64,7 @@ void main() {
     // Dokumenty z doby, kdy evidence uměla jen elektroměry, pole nemají.
     test('chybějící nebo neznámý druh je elektřina', () {
       expect(DruhMista.zKlice(null), DruhMista.elektrina);
-      expect(DruhMista.zKlice('voda'), DruhMista.elektrina);
+      expect(DruhMista.zKlice('teplo'), DruhMista.elektrina);
     });
 
     test('plyn se odečítá v m³, ostatní v kWh', () {
@@ -72,6 +72,7 @@ void main() {
       expect(DruhMista.elektrina.jednotka, 'kWh');
       expect(DruhMista.klimatizace.jednotka, 'kWh');
       expect(DruhMista.nabijecka.jednotka, 'kWh');
+      expect(DruhMista.voda.jednotka, 'm³');
     });
 
     test('místo bez druhu je elektřina', () {
@@ -112,7 +113,7 @@ void main() {
   });
 
   group('výchozí seznam míst', () {
-    test('má všech 76 míst z tabulky zadavatele', () {
+    test('má všech 85 míst z tabulky zadavatele', () {
       int pocet(DruhMista d) => vychoziMista.where((m) => m.druh == d).length;
       expect(pocet(DruhMista.plyn), 17);
       expect(
@@ -122,7 +123,8 @@ void main() {
       );
       expect(pocet(DruhMista.klimatizace), 18);
       expect(pocet(DruhMista.nabijecka), 18);
-      expect(vychoziMista, hasLength(76));
+      expect(pocet(DruhMista.voda), 9);
+      expect(vychoziMista, hasLength(85));
     });
 
     test('všechna jsou v Brně', () {
