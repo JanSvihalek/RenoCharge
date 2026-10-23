@@ -74,10 +74,13 @@ jobs:
 
       # Android Gradle Plugin i Flutter chtějí JDK 17. Runner má
       # předinstalováno víc verzí, tak si tu svoji vybereme sami.
+      # Cache Gradlu: bez ní se při každém buildu znovu stahují pluginy
+      # a závislosti Androidu, což je velká část z osmi minut.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - uses: subosito/flutter-action@v2
         with:
@@ -212,12 +215,17 @@ jobs:
           PLIST
           cat "$RUNNER_TEMP/ExportOptions.plist"
 
+      # Jen konfigurace, žádný překlad: zapíše číslo buildu do
+      # Generated.xcconfig a provede pod install. Překládá až archiv níž.
+      # Dřív tu běželo celé `flutter build ios` a archiv pak všechno
+      # přeložil znovu – iOS build tak trval skoro dvojnásob.
+      #
       # TestFlight odmítne nahrát dvakrát stejné číslo, takže napevno
       # zapsaná jednička z pubspec.yaml by prošla jen jednou. Odkud se
       # číslo bere, viz POSUN_BUILDU nahoře.
-      - name: Přeložení Flutteru
+      - name: Konfigurace projektu
         run: |
-          flutter build ios --release --no-codesign \
+          flutter build ios --config-only --release --no-codesign \
             --build-number=${{ needs.kontrola.outputs.cislo_buildu }}
 
       # Podpis se nesmí předávat přes příkazovou řádku xcodebuildu –
@@ -225,7 +233,7 @@ jobs:
       # tedy i pro pody, které provisioning profil nepodporují.
       # Release.xcconfig je základ konfigurace jen pro cíl Runner,
       # takže se nastavení nikam jinam nepropíše. Dopisujeme až po
-      # překladu, aby to nepřepsal pod install.
+      # konfiguraci, aby to nepřepsal pod install.
       - name: Podpis pro cíl Runner
         env:
           TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -242,6 +250,8 @@ jobs:
           CFG
           cat ios/Flutter/Release.xcconfig
 
+      # Tady se překládá všechno – Dart (přes build fázi Flutteru v Xcode
+      # projektu) i nativní kód.
       - name: Archiv
         run: |
           set -euo pipefail

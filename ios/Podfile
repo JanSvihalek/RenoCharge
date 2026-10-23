@@ -34,6 +34,27 @@ target 'Runner' do
   use_frameworks!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Předkompilovaný Firestore. Pod z Firebase s sebou nese ~500 tisíc
+  # řádků C++ (gRPC, abseil, BoringSSL), které se jinak při každém
+  # buildu na CI překládají ze zdrojáků – to byla většina ze 40 minut
+  # iOS buildu.
+  #
+  # Verze se bere z firebase_core, takže po aktualizaci pluginů sedí
+  # sama. Kdyby pro novou verzi tag v repozitáři chyběl, pod install
+  # selže s hláškou o chybějícím tagu – pak tenhle blok dočasně vypnout.
+  #
+  # Repozitář se od října 2026 nevyvíjí: Firebase ukončilo distribuci
+  # přes CocoaPods a cesta dál je Swift Package Manager, kde je Firestore
+  # předkompilovaný sám. Do té doby tohle drží build v rozumném čase.
+  require File.join(
+    File.dirname(File.realpath(__FILE__)),
+    '.symlinks', 'plugins', 'firebase_core', 'ios', 'firebase_sdk_version.rb'
+  )
+  pod 'FirebaseFirestore',
+      :git => 'https://github.com/invertase/firestore-ios-sdk-frameworks.git',
+      :tag => firebase_sdk_version!
+
   target 'RunnerTests' do
     inherit! :search_paths
   end
