@@ -337,6 +337,14 @@ nesmí vzniknout „20243". Krátké shluky se zahazují, „2024" je rok výrob
 U čísla ze štítku je identifikace **odhad**, ne jistota, takže se
 uživateli ukáže, co se načetlo. U QR se neptáme.
 
+> **Změna (říjen 2026):** tlačítko „Vyfotit štítek" ve skeneru působilo
+> jako „vytvořit QR štítek" a otevíralo systémový fotoaparát. Výchozí
+> místa navíc výrobní čísla nemají, takže čtení čísla nemohlo nic najít.
+> Hlavní záloha je teď **„Vybrat ze seznamu"** (zavře skener, v seznamu
+> se hledá podle názvu). „Přečíst výrobní číslo z měřidla" se nabízí jen
+> tehdy, když má aspoň jedno místo pobočky číslo vyplněné; skener se na
+> tu dobu zastaví, aby systémovému fotoaparátu nepřekážel.
+
 **Výběr ze seznamu** zůstává vždycky. Skenování je zkratka, ne jediná
 cesta.
 

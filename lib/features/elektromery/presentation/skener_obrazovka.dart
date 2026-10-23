@@ -4,7 +4,6 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../common/chyby.dart';
 import '../../../common/widgety/hlaseni.dart';
-import '../../../common/widgety/tlacitka.dart';
 import '../../nabijeni/application/foto_sluzba.dart';
 import '../../nabijeni/application/ocr_sluzba.dart';
 import '../../nabijeni/domain/porizena_fotografie.dart';
@@ -82,11 +81,22 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
     }
   }
 
-  /// Vyfotí štítek a zkusí z něj přečíst výrobní číslo.
+  /// Má aspoň jedno místo vyplněné výrobní číslo? Jen pak má smysl
+  /// nabízet čtení čísla z výrobního štítku – bez čísel v evidenci není
+  /// s čím porovnávat a tlačítko jen matlo (vypadalo jako „vytvořit
+  /// QR štítek").
+  bool get _lzeHledatPodleCisla => widget.elektromery.any((e) => e.maCislo);
+
+  /// Vyfotí výrobní štítek měřidla a zkusí z něj přečíst výrobní číslo.
+  ///
+  /// Skener se na tu dobu zastaví: systémový fotoaparát potřebuje kameru
+  /// pro sebe, a kdyby ji skener dál držel, na části Androidů by se
+  /// fotoaparát neotevřel nebo by po návratu zamrzl obraz skeneru.
   Future<void> _zeStitku() async {
     if (_ctuStitek || _hotovo) return;
     setState(() => _ctuStitek = true);
     try {
+      await _ovladac.stop();
       final foto = await ref
           .read(fotoSluzbaProvider)
           .nactiPocitadlo(ZdrojFoto.fotoaparat);
@@ -110,6 +120,9 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
       if (!mounted) return;
       setState(() => _ctuStitek = false);
       ukazChybu(context, chyba);
+    } finally {
+      // Když se místo nenašlo, skenuje se dál.
+      if (mounted && !_hotovo) await _ovladac.start();
     }
   }
 
@@ -204,25 +217,59 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Nemá kód nebo je poškozený?',
+                    'Kód chybí nebo je poškozený?',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 13,
                       shadows: [Shadow(blurRadius: 6)],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  PrimarniTlacitko(
-                    popisek: 'Vyfotit štítek',
-                    ikona: Icons.text_fields,
-                    nacita: _ctuStitek,
-                    onTap: _ctuStitek ? null : _zeStitku,
+                  // Záloha bez QR je seznam s hledáním – skener se zavře
+                  // a člověk místo najde podle názvu.
+                  _OdkazNadObrazem(
+                    popisek: 'Vybrat ze seznamu',
+                    onTap: () => Navigator.of(context).pop(),
                   ),
+                  if (_lzeHledatPodleCisla)
+                    _OdkazNadObrazem(
+                      popisek: _ctuStitek
+                          ? 'Čtu výrobní číslo…'
+                          : 'Přečíst výrobní číslo z měřidla',
+                      onTap: _ctuStitek ? null : _zeStitku,
+                    ),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Textové tlačítko nad živým obrazem kamery – bílé se stínem, aby bylo
+/// čitelné na světlém i tmavém pozadí.
+class _OdkazNadObrazem extends StatelessWidget {
+  const _OdkazNadObrazem({required this.popisek, required this.onTap});
+
+  final String popisek;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+      child: Text(
+        popisek,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.white,
+          shadows: [Shadow(blurRadius: 6)],
+        ),
       ),
     );
   }
