@@ -120,8 +120,9 @@ class _ExportObrazovkaState extends ConsumerState<ExportObrazovka> {
     final stavy = widget.stavy;
     final jeNabijeni = widget.elektromer == null && stavy == null;
     final posledni = jeNabijeni ? ref.watch(posledniExportProvider) : null;
-    // Stavy jsou jen tabulka – fotky ani volba formátu tu nemají smysl.
-    final sFotkamiVolba = _format == _Format.pdf && stavy == null;
+    // Fotky volí jen nabíjení. Stavy jsou tabulka a odečty odběrných míst
+    // se fotí jen u starších záznamů – ty se do PDF dostanou samy.
+    final sFotkamiVolba = _format == _Format.pdf && jeNabijeni;
 
     return Scaffold(
       backgroundColor: b.bg,

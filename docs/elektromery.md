@@ -202,6 +202,19 @@ Použije **beze změny stávající tok focení**: fotoaparát se otevře hned,
 OCR předvyplní hodnotu, pole je vždy přepisovatelné, jde vzít fotku
 z galerie. Nad polem se ukáže minulý stav, ať má člověk s čím porovnat.
 
+> **Změna (říjen 2026): bez fotky.** Údržba fotku u odečtu nepotřebuje.
+> Po načtení QR (nebo klepnutí na řádek) se otevře panel s polem na stav,
+> minulým stavem a živě dopočítanou spotřebou „od minula +150 kWh" –
+> bez fotky je překlep o řád největší riziko a takhle je vidět hned.
+> `foto` je v odečtu nepovinné, starší odečty ho mají dál. Nabíjení si
+> fotku počítadla nechává, tam je to doklad k fakturaci.
+>
+> **Stejný stav jako minule projde** (spotřeba nula – nevyužitá nabíječka,
+> klimatizace v zimě). Nižší se zeptá na výměnu měřidla; při „Opravit
+> hodnotu" se panel otevře znovu s napsanou hodnotou. Dřív focení nižší
+> hodnotu zablokovalo dřív, než se aplikace stihla zeptat, takže výměna
+> měřidla zapsat nešla.
+
 Kontroly před uložením:
 
 * hodnota musí být vyšší než `posledni_odecet.hodnota`, jinak aplikace
@@ -339,6 +352,16 @@ elektroměr a aby se dal přečíst okem, když se kód poškrábe.
 
 Jednotlivý štítek se tiskne z detailu elektroměru. Hodí se, když se ten
 nalepený poškodí nebo když elektroměr přibude až po hromadném tisku.
+
+> **Arch etiket (říjen 2026):** štítky se sázejí na samolepicí etikety
+> **52,5 × 29,7 mm, 4 × 10 na A4** bez okrajů (rozměry v `ArchStitku`
+> v [report_pdf.dart](../lib/features/reporty/application/report_pdf.dart)).
+> Kód má 20 mm a od hrany etikety drží odstup, protože krajní etikety
+> sahají až k okraji papíru, kam tiskárny netisknou.
+>
+> Před tiskem se aplikace zeptá, **od které etikety začít** – dotisk
+> jednoho štítku tak nespotřebuje nový arch. Tisknout se musí ve
+> skutečné velikosti (100 %), jinak štítky nesednou.
 
 ## Report
 

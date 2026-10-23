@@ -127,12 +127,12 @@ class ZaznamNenalezen extends AppChyba {
 
 // ── Odběrná místa ──────────────────────────────────────────────────────────────
 
-/// Nový odečet je nižší nebo stejný jako minulý. Buď je to překlep,
-/// nebo se měřidlo vyměnilo – druhé se musí přiznat zaškrtnutím.
+/// Nový odečet je nižší než minulý. Buď je to překlep, nebo se měřidlo
+/// vyměnilo – druhé se musí přiznat.
 class NizsiNezMinulyOdecet extends AppChyba {
   const NizsiNezMinulyOdecet(this.minulaHodnota)
     : super(
-        'Nový stav musí být vyšší než minulý odečet. '
+        'Nový stav nesmí být nižší než minulý odečet. '
         'Pokud se měřidlo vyměnilo a počítadlo začalo od nuly, '
         'zaškrtněte výměnu měřidla.',
       );

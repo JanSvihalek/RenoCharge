@@ -51,7 +51,7 @@ class Odecet {
     required this.uid,
     required this.hodnota,
     required this.odectenoAt,
-    required this.foto,
+    this.foto,
     this.predchoziHodnota,
     this.vymenaMeridla = false,
     this.poznamka,
@@ -69,7 +69,11 @@ class Odecet {
   /// Čas z EXIF fotky, ne čas zápisu – je to okamžik, kdy se počítadlo
   /// opravdu odečetlo.
   final DateTime odectenoAt;
-  final FotoMetadata foto;
+
+  /// Fotka počítadla. Odečty odběrných míst se od října 2026 zapisují
+  /// ručně po načtení QR, bez fotky – údržba ji nepotřebuje. Fotku mají
+  /// jen starší odečty z doby, kdy se fotilo.
+  final FotoMetadata? foto;
 
   /// Stav, který elektroměr nesl v době zápisu. Snímek toho, co člověk
   /// v tu chvíli viděl – slouží k auditu, ne k výpočtu spotřeby.
@@ -91,7 +95,6 @@ class Odecet {
 
   factory Odecet.zDokumentu(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const <String, dynamic>{};
-    final foto = FotoMetadata.zMapy(data['foto']);
     return Odecet(
       id: doc.id,
       elektromerId: data['elektromer_id'] as String? ?? '',
@@ -102,9 +105,7 @@ class Odecet {
           (data['odecteno_at'] as Timestamp?)?.toDate() ??
           (data['vytvoreno_at'] as Timestamp?)?.toDate() ??
           DateTime.now(),
-      foto:
-          foto ??
-          FotoMetadata(path: '', sha256: '', porizenoAt: DateTime.now()),
+      foto: FotoMetadata.zMapy(data['foto']),
       predchoziHodnota: (data['predchozi_hodnota'] as num?)?.toDouble(),
       vymenaMeridla: data['vymena_meridla'] as bool? ?? false,
       poznamka: data['poznamka'] as String?,
@@ -117,7 +118,7 @@ class Odecet {
     required String uid,
     required double hodnota,
     required DateTime odectenoAt,
-    required FotoMetadata foto,
+    FotoMetadata? foto,
     double? predchoziHodnota,
     bool vymenaMeridla = false,
     String? poznamka,
@@ -127,7 +128,7 @@ class Odecet {
     'uid': uid,
     'hodnota': hodnota,
     'odecteno_at': Timestamp.fromDate(odectenoAt),
-    'foto': foto.naMapu(),
+    'foto': ?foto?.naMapu(),
     'predchozi_hodnota': predchoziHodnota,
     'vymena_meridla': vymenaMeridla,
     'poznamka': poznamka,

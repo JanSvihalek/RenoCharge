@@ -418,8 +418,8 @@ class ReportController extends Notifier<StavReportu> {
     state = ReportStahujeFotky(hotovo: hotovo, celkem: odecty.length);
 
     for (final o in odecty) {
-      if (o.foto.path.isNotEmpty) {
-        final bajty = await uloziste.stahni(o.foto.path);
+      if (o.foto?.path case final cesta? when cesta.isNotEmpty) {
+        final bajty = await uloziste.stahni(cesta);
         if (bajty != null) fotky[o.id] = await compute(zmensiProPdf, bajty);
       }
       hotovo++;
@@ -438,13 +438,17 @@ class ReportController extends Notifier<StavReportu> {
   Future<int?> vytvorStitky({
     required String popis,
     required List<Elektromer> elektromery,
+    int preskocit = 0,
   }) async {
     if (probiha) return null;
     if (elektromery.isEmpty) return 0;
 
     try {
       state = const ReportSestavuje();
-      final bajty = await (await ReportPdf.nacti()).sestavStitky(elektromery);
+      final bajty = await (await ReportPdf.nacti()).sestavStitky(
+        elektromery,
+        preskocit: preskocit,
+      );
 
       final jeden = elektromery.length == 1;
 

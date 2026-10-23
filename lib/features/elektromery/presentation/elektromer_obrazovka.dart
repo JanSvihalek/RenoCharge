@@ -7,7 +7,6 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../nabijeni/presentation/prohlizec_fotky.dart';
-import '../../reporty/application/report_controller.dart';
 import '../../reporty/presentation/export_obrazovka.dart';
 import '../application/elektromery_providery.dart';
 import '../application/odecty_controller.dart';
@@ -16,6 +15,7 @@ import '../domain/odecet.dart';
 import '../domain/pobocka.dart';
 import 'formular_elektromeru.dart';
 import 'ikona_druhu.dart';
+import 'tisk_stitku.dart';
 import 'tok_odectu.dart';
 
 /// Detail odběrného místa: údaje, zápis odečtu, historie a export.
@@ -169,14 +169,14 @@ class _Obsah extends ConsumerWidget {
         // když místo přibude po hromadném tisku za pobočku.
         OdkazoveTlacitko(
           popisek: 'Vytisknout QR štítek',
-          onTap: () => ref
-              .read(reportControllerProvider.notifier)
-              .vytvorStitky(
-                popis:
-                    '${elektromer.druh.nazev} '
-                    '${elektromer.maCislo ? elektromer.cislo : elektromer.nazev}',
-                elektromery: [elektromer],
-              ),
+          onTap: () => vytiskniStitky(
+            context,
+            ref,
+            popis:
+                '${elektromer.druh.nazev} '
+                '${elektromer.maCislo ? elektromer.cislo : elektromer.nazev}',
+            mista: [elektromer],
+          ),
         ),
       ],
     );
@@ -207,7 +207,9 @@ class _RadekOdectu extends StatelessWidget {
     final b = context.barvy;
     final o = polozka.odecet;
     final spotreba = polozka.spotreba;
-    final maFotku = o.foto.path.isNotEmpty;
+    // Fotku mají jen starší odečty z doby, kdy se fotilo.
+    final cestaFotky = o.foto?.path;
+    final maFotku = cestaFotky != null && cestaFotky.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -219,7 +221,7 @@ class _RadekOdectu extends StatelessWidget {
                 MaterialPageRoute(
                   fullscreenDialog: true,
                   builder: (_) => ProhlizecFotky(
-                    cesta: o.foto.path,
+                    cesta: cestaFotky,
                     popisek:
                         '${Format.datum(o.odectenoAt)} · '
                         '${Format.kwh(o.hodnota)} $jednotka',

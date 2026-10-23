@@ -3,9 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../common/chyby.dart';
 import '../../../common/firebase/firebase_providery.dart';
 import '../../auth/application/auth_providery.dart';
-import '../../nabijeni/application/nabijeni_providery.dart';
-import '../../nabijeni/data/foto_uloziste.dart';
-import '../../nabijeni/domain/porizena_fotografie.dart';
 import '../data/odecty_repository.dart';
 import '../domain/elektromer.dart';
 import '../domain/odecet.dart';
@@ -24,7 +21,8 @@ final historieOdectuProvider = StreamProvider.autoDispose
           .map(dopocitejSpotrebu);
     });
 
-/// Zapsání odečtu: nahrání fotky a zápis transakcí.
+/// Zapsání odečtu transakcí. Bez fotky – hodnota se zadává ručně po
+/// načtení QR, viz `otevriZapisOdectu`.
 class OdectyController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
@@ -33,7 +31,6 @@ class OdectyController extends AsyncNotifier<void> {
   Future<bool> zapis({
     required Elektromer elektromer,
     required double hodnota,
-    required PorizenaFotografie foto,
     bool vymenaMeridla = false,
     String? poznamka,
   }) async {
@@ -46,27 +43,14 @@ class OdectyController extends AsyncNotifier<void> {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final repo = ref.read(odectyRepositoryProvider);
-      final odecetId = repo.noveId();
-
-      // Fotka jde do Storage dřív než záznam, protože cesta se odvozuje
-      // z ID vygenerovaného dopředu. Když transakce selže, snímek zůstane
-      // osiřelý – mazat ho pravidla nedovolují nikomu, aby z důkazu
-      // nebylo jen přání.
-      final metadata = await ref
-          .read(fotoUlozisteProvider)
-          .nahraj(
-            cil: CilFotky.odecet(uid: uid, odecetId: odecetId),
-            foto: foto,
-          );
-
       await repo.zapis(
-        odecetId: odecetId,
+        odecetId: repo.noveId(),
         elektromer: elektromer,
         uid: uid,
         hodnota: hodnota,
-        // Čas z EXIF – okamžik, kdy se počítadlo opravdu odečetlo.
-        odectenoAt: foto.porizenoAt,
-        foto: metadata,
+        // Bez fotky není EXIF – odečítá se u měřidla, takže okamžik
+        // zápisu je okamžik odečtu.
+        odectenoAt: DateTime.now(),
         vymenaMeridla: vymenaMeridla,
         poznamka: poznamka,
       );

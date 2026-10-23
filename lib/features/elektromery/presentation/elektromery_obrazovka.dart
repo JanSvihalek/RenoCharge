@@ -14,13 +14,13 @@ import '../domain/elektromer.dart';
 import '../domain/obchuzka.dart';
 import '../domain/pobocka.dart';
 import '../domain/vychozi_mista.dart';
-import '../../reporty/application/report_controller.dart';
 import '../../reporty/presentation/export_obrazovka.dart';
 import '../domain/identifikace.dart';
 import 'elektromer_obrazovka.dart';
 import 'formular_elektromeru.dart';
 import 'ikona_druhu.dart';
 import 'skener_obrazovka.dart';
+import 'tisk_stitku.dart';
 import 'tok_odectu.dart';
 
 /// Seznam odběrných míst zvolené pobočky – elektřina, plyn, klimatizace
@@ -71,19 +71,14 @@ class ElektromeryObrazovka extends ConsumerWidget {
                 popisPristupnosti: druh == null
                     ? 'Vytisknout QR štítky pobočky'
                     : 'Vytisknout QR štítky: ${druh.nazev}',
-                onTap: () async {
-                  final pocet = await ref
-                      .read(reportControllerProvider.notifier)
-                      .vytvorStitky(
-                        popis: druh == null
-                            ? pobocka.kod
-                            : '${pobocka.kod} ${druh.nazev}',
-                        elektromery: zobrazena,
-                      );
-                  if (context.mounted && pocet == 0) {
-                    ukazVarovani(context, 'Zatím tu není co oštítkovat.');
-                  }
-                },
+                onTap: () => vytiskniStitky(
+                  context,
+                  ref,
+                  popis: druh == null
+                      ? pobocka.kod
+                      : '${pobocka.kod} ${druh.nazev}',
+                  mista: zobrazena,
+                ),
               ),
               const SizedBox(width: 8),
               // Export bere stejný výřez jako štítky – co je vidět,

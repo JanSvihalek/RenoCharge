@@ -234,84 +234,116 @@ class ReportPdf {
     ),
   ];
 
-  /// Arch QR štítků k vytištění na samolepky.
+  /// Arch QR štítků na samolepicí etikety **52,5 × 29,7 mm, 4 × 10 na A4**
+  /// (40 kusů na arch, bez okrajů – etikety jdou až ke hraně papíru).
   ///
-  /// Elektroměry v terénu QR kód nemají, takže si ho firma musí nalepit.
-  /// Vyrobit osmdesát kódů ručně by bylo na den práce – aplikace umí
-  /// vysázet arch sama, protože sázecí stroj na PDF už v projektu je.
-  ///
+  /// Odběrná místa v terénu QR kód nemají, takže si ho firma nalepí.
   /// Vedle kódu je umístění, druh a číslo, aby šlo štítek nalepit na
   /// správné měřidlo a aby se dal přečíst i okem, když se kód poškrábe.
   /// Druh je tam kvůli místům, která se jmenují stejně – „Servis" je
   /// plynoměr, elektroměr, klimatizace i nabíječka.
-  Future<Uint8List> sestavStitky(List<Elektromer> elektromery) async {
+  ///
+  /// [preskocit] je počet už použitých etiket na začátku archu. Bez něj by
+  /// dotisk jednoho poškozeného štítku spotřeboval nový arch, nebo by se
+  /// tiskl na místo, kde etiketa už chybí. Etikety se počítají po řádcích
+  /// zleva doprava.
+  Future<Uint8List> sestavStitky(
+    List<Elektromer> elektromery, {
+    int preskocit = 0,
+  }) async {
     final dokument = pw.Document(title: 'QR štítky odběrných míst');
-
-    dokument.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(28),
-        theme: pw.ThemeData.withFont(base: zakladni, bold: tucne),
-        build: (context) => [
-          pw.Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [for (final e in elektromery) _stitek(e)],
-          ),
-        ],
-      ),
+    final stranka = PdfPageFormat.a4.copyWith(
+      marginLeft: 0,
+      marginTop: 0,
+      marginRight: 0,
+      marginBottom: 0,
     );
+
+    final pozice = [
+      for (var i = 0; i < elektromery.length; i++)
+        (pozice: preskocit + i, misto: elektromery[i]),
+    ];
+    final pocetStran = pozice.isEmpty
+        ? 1
+        : (pozice.last.pozice ~/ ArchStitku.naArch) + 1;
+
+    for (var strana = 0; strana < pocetStran; strana++) {
+      dokument.addPage(
+        pw.Page(
+          pageFormat: stranka,
+          theme: pw.ThemeData.withFont(base: zakladni, bold: tucne),
+          build: (context) => pw.Stack(
+            children: [
+              for (final p in pozice)
+                if (p.pozice ~/ ArchStitku.naArch == strana)
+                  pw.Positioned(
+                    left: (p.pozice % ArchStitku.sloupce) * ArchStitku.sirka,
+                    top:
+                        (p.pozice % ArchStitku.naArch ~/ ArchStitku.sloupce) *
+                        ArchStitku.vyska,
+                    child: _stitek(p.misto),
+                  ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return dokument.save();
   }
 
-  pw.Widget _stitek(Elektromer e) => pw.Container(
-    width: 165,
-    height: 118,
-    padding: const pw.EdgeInsets.all(8),
-    decoration: pw.BoxDecoration(
-      border: pw.Border.all(color: _linka, width: 0.5),
-    ),
-    child: pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.BarcodeWidget(
-          barcode: pw.Barcode.qrCode(),
-          data: obsahQr(e),
-          width: 74,
-          height: 74,
-          drawText: false,
-        ),
-        pw.SizedBox(width: 8),
-        pw.Expanded(
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                e.nazev,
-                style: pw.TextStyle(font: tucne, fontSize: 9),
-                maxLines: 3,
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                e.druh.nazev,
-                style: const pw.TextStyle(fontSize: 8, color: _seda),
-              ),
-              if (e.maCislo)
-                pw.Text(
-                  'č. ${e.cislo}',
-                  style: const pw.TextStyle(fontSize: 8, color: _seda),
-                  maxLines: 2,
-                ),
-              pw.Spacer(),
-              pw.Text(
-                e.pobocka?.kod ?? e.pobockaKod,
-                style: const pw.TextStyle(fontSize: 7, color: _seda),
-              ),
-            ],
+  /// Jedna etiketa. Okraje uvnitř jsou větší, než by stačilo: krajní
+  /// etikety sahají až ke hraně papíru a tiskárny u ní pár milimetrů
+  /// netisknou – kód tak zůstane celý i na krajních etiketách.
+  pw.Widget _stitek(Elektromer e) => pw.SizedBox(
+    width: ArchStitku.sirka,
+    height: ArchStitku.vyska,
+    child: pw.Padding(
+      padding: const pw.EdgeInsets.fromLTRB(
+        3.5 * PdfPageFormat.mm,
+        0,
+        3 * PdfPageFormat.mm,
+        0,
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          // 20 mm: s rezervou čitelné telefonem z ruky a nahoře i dole
+          // zbude skoro 5 mm, kam tiskárna u hrany papíru ještě dosáhne.
+          pw.BarcodeWidget(
+            barcode: pw.Barcode.qrCode(),
+            data: obsahQr(e),
+            width: 20 * PdfPageFormat.mm,
+            height: 20 * PdfPageFormat.mm,
+            drawText: false,
           ),
-        ),
-      ],
+          pw.SizedBox(width: 2 * PdfPageFormat.mm),
+          pw.Expanded(
+            child: pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  e.nazev,
+                  style: pw.TextStyle(font: tucne, fontSize: 8),
+                  maxLines: 3,
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  '${e.druh.nazev} · ${e.pobocka?.kod ?? e.pobockaKod}',
+                  style: const pw.TextStyle(fontSize: 6.5, color: _seda),
+                ),
+                if (e.maCislo)
+                  pw.Text(
+                    'č. ${e.cislo}',
+                    style: const pw.TextStyle(fontSize: 6.5, color: _seda),
+                    maxLines: 1,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -518,3 +550,14 @@ class ReportPdf {
 }
 
 String _kwhNeboPomlcka(double? kwh) => kwh == null ? '–' : Format.kwh(kwh);
+
+/// Arch samolepicích etiket: 52,5 × 29,7 mm, 4 sloupce × 10 řádků na A4,
+/// bez okrajů. Rozměry přesně dělí A4 (210 / 4, 297 / 10).
+abstract final class ArchStitku {
+  static const int sloupce = 4;
+  static const int radky = 10;
+  static const int naArch = sloupce * radky;
+
+  static const double sirka = 52.5 * PdfPageFormat.mm;
+  static const double vyska = 29.7 * PdfPageFormat.mm;
+}

@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:pdf/pdf.dart';
 import 'package:renocharge/features/elektromery/domain/elektromer.dart';
 import 'package:renocharge/features/elektromery/domain/odecet.dart';
 import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
@@ -408,6 +410,40 @@ void _testyReportuElektromeru() {
 
       expect(String.fromCharCodes(bajty.sublist(0, 5)), '%PDF-');
       expect(bajty.length, greaterThan(1000));
+    });
+
+    // Počet stránek v PDF – každá stránka je jeden arch etiket.
+    int pocetStran(List<int> pdf) =>
+        RegExp(r'/Type\s*/Page\b(?!s)').allMatches(latin1.decode(pdf)).length;
+
+    List<Elektromer> mista(int pocet) => [
+      for (var i = 0; i < pocet; i++)
+        Elektromer(id: 'm$i', pobockaKod: 'BSL', cislo: '', nazev: 'Místo $i'),
+    ];
+
+    test('arch má 40 etiket, 41. štítek jde na další arch', () async {
+      final pdf = await ReportPdf.nacti();
+      expect(pocetStran(await pdf.sestavStitky(mista(40))), 1);
+      expect(pocetStran(await pdf.sestavStitky(mista(41))), 2);
+    });
+
+    // Načatý arch: první dvě etikety chybí, takže 39 štítků se na jeden
+    // arch už nevejde.
+    test('přeskočené etikety posunou tisk dál', () async {
+      final pdf = await ReportPdf.nacti();
+      expect(pocetStran(await pdf.sestavStitky(mista(38), preskocit: 2)), 1);
+      expect(pocetStran(await pdf.sestavStitky(mista(39), preskocit: 2)), 2);
+    });
+
+    test('rozměry etiket přesně dělí A4', () {
+      expect(
+        ArchStitku.sirka * ArchStitku.sloupce,
+        closeTo(PdfPageFormat.a4.width, 0.01),
+      );
+      expect(
+        ArchStitku.vyska * ArchStitku.radky,
+        closeTo(PdfPageFormat.a4.height, 0.01),
+      );
     });
 
     test('název souboru rozliší jeden štítek od archu', () {

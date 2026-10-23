@@ -111,15 +111,20 @@ class OdectyRepository {
   /// by si jinak přepsali `posledni_odecet` a seznam by pak ukazoval
   /// starší hodnotu než historie.
   ///
-  /// Hodnota musí být vyšší než poslední odečet. Výjimkou je přiznaná
+  /// Hodnota nesmí být nižší než poslední odečet. Výjimkou je přiznaná
   /// výměna měřidla, kdy počítadlo legitimně začíná od nuly.
+  ///
+  /// Stejná hodnota projde: nabíječka nebo klimatizace, která za měsíc
+  /// nic neodebrala, má stav stejný jako minule a spotřebu nula. Dřív se
+  /// vyžadovala vyšší a takový odečet šel zapsat jen jako výměna měřidla,
+  /// což je nesmysl.
   Future<void> zapis({
     required String odecetId,
     required Elektromer elektromer,
     required String uid,
     required double hodnota,
     required DateTime odectenoAt,
-    required FotoMetadata foto,
+    FotoMetadata? foto,
     bool vymenaMeridla = false,
     String? poznamka,
   }) async {
@@ -135,7 +140,7 @@ class OdectyRepository {
         final predchozi = aktualni.posledniOdecet;
         if (!vymenaMeridla &&
             predchozi != null &&
-            hodnota <= predchozi.hodnota) {
+            hodnota < predchozi.hodnota) {
           throw NizsiNezMinulyOdecet(predchozi.hodnota);
         }
 

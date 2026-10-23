@@ -2,8 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:renocharge/features/elektromery/domain/druh_mista.dart';
 import 'package:renocharge/features/elektromery/domain/elektromer.dart';
 import 'package:renocharge/features/elektromery/domain/identifikace.dart';
+import 'package:renocharge/features/elektromery/domain/odecet.dart';
 import 'package:renocharge/features/elektromery/domain/pobocka.dart';
 import 'package:renocharge/features/elektromery/domain/vychozi_mista.dart';
+import 'package:renocharge/features/nabijeni/domain/foto_metadata.dart';
 
 Elektromer _misto({
   String id = 'm1',
@@ -19,6 +21,39 @@ Elektromer _misto({
 );
 
 void main() {
+  group('odečet bez fotky', () {
+    // Odečty odběrných míst se zapisují ručně po načtení QR. Pravidla
+    // berou chybějící `foto` jako „bez fotky", ne jako prázdnou fotku.
+    test('do Firestore jde bez pole foto', () {
+      final mapa = Odecet.mapaProZalozeni(
+        elektromerId: 'm1',
+        pobockaKod: 'BSL',
+        uid: 'u1',
+        hodnota: 1250,
+        odectenoAt: DateTime(2026, 10, 23, 9),
+      );
+      expect(mapa.containsKey('foto'), isFalse);
+      expect(mapa['hodnota'], 1250);
+    });
+
+    test('s fotkou ji zapíše', () {
+      final foto = FotoMetadata(
+        path: 'odecty/u1/o1.jpg',
+        sha256: 'x' * 64,
+        porizenoAt: DateTime(2026, 9, 2),
+      );
+      final mapa = Odecet.mapaProZalozeni(
+        elektromerId: 'm1',
+        pobockaKod: 'BSL',
+        uid: 'u1',
+        hodnota: 1250,
+        odectenoAt: DateTime(2026, 9, 2),
+        foto: foto,
+      );
+      expect(mapa['foto'], foto.naMapu());
+    });
+  });
+
   group('DruhMista', () {
     test('zná klíče z Firestore', () {
       for (final d in DruhMista.values) {

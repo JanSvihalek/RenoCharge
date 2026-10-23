@@ -212,7 +212,7 @@ service cloud.firestore {
         ])
         && nova().keys().hasAll([
           'elektromer_id', 'pobocka_id', 'uid', 'hodnota', 'odecteno_at',
-          'foto', 'vymena_meridla'
+          'vymena_meridla'
         ])
         && nova().elektromer_id is string
         && nova().elektromer_id.size() > 0
@@ -223,7 +223,9 @@ service cloud.firestore {
         && nova().vymena_meridla is bool
         && (nova().poznamka == null
             || (nova().poznamka is string && nova().poznamka.size() <= 300))
-        && platnaFoto(nova().foto);
+        // Fotka je nepovinná: odečty se od října 2026 zapisují ručně po
+        // načtení QR. Když je, musí být platná.
+        && (nova().get('foto', null) == null || platnaFoto(nova().foto));
       }
 
       allow read: if prihlasen();
