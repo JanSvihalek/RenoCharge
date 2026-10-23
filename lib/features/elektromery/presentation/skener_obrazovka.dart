@@ -115,7 +115,23 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          MobileScanner(controller: _ovladac, onDetect: _zQr),
+          // Výřez, ve kterém se kód smí najít. Knihovna bere každý kód,
+          // který do výřezu aspoň zasahuje – kdyby byl výřez celý
+          // rámeček, chytil by se i sousední štítek, který do něj vleze
+          // rohem. Etikety na archu jsou těsně vedle sebe, takže to není
+          // teorie. Proto jen střed rámečku: kód, na který člověk míří,
+          // ho pokryje vždycky, soused skoro nikdy.
+          LayoutBuilder(
+            builder: (context, rozmery) => MobileScanner(
+              controller: _ovladac,
+              onDetect: _zQr,
+              scanWindow: Rect.fromCenter(
+                center: rozmery.biggest.center(Offset.zero),
+                width: _Zamerovac.velikost * _podilVyrezu,
+                height: _Zamerovac.velikost * _podilVyrezu,
+              ),
+            ),
+          ),
 
           // Zaměřovací rámeček. Na rozdíl od dřívějšího hledáčku
           // u focení tady opravdu leží nad živým obrazem z kamery.
@@ -152,7 +168,7 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
                     ),
                     const Expanded(
                       child: Text(
-                        'Namiřte na QR kód odběrného místa',
+                        'Namiřte QR kód doprostřed rámečku',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,
@@ -203,14 +219,20 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
   }
 }
 
+/// Jaká část rámečku (po stranách) se opravdu prohledává – viz komentář
+/// u `scanWindow`.
+const double _podilVyrezu = 0.5;
+
 class _Zamerovac extends StatelessWidget {
   const _Zamerovac();
+
+  static const double velikost = 240;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 240,
-      height: 240,
+      width: velikost,
+      height: velikost,
       decoration: BoxDecoration(
         border: Border.all(color: Colors.white70, width: 3),
         borderRadius: BorderRadius.circular(16),
