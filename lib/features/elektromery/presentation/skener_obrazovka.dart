@@ -31,6 +31,11 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
   final _ovladac = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
     formats: const [BarcodeFormat.qrCode],
+    // Android jinak skenuje v 640 × 480. QR na štítku má 20 mm a nese
+    // dlouhé ID místa, takže jsou jeho moduly drobné – v nízkém rozlišení
+    // se přečte, až když je telefon tak blízko, že už nezaostří. iOS
+    // tohle nastavení nezná, skenuje ve vyšším rozlišení sám.
+    cameraResolution: const Size(1920, 1080),
   );
 
   /// Po prvním nálezu se skener umlčí – jinak by kamera pálila další
@@ -115,20 +120,24 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Výřez, ve kterém se kód smí najít. Knihovna bere každý kód,
-          // který do výřezu aspoň zasahuje – kdyby byl výřez celý
-          // rámeček, chytil by se i sousední štítek, který do něj vleze
-          // rohem. Etikety na archu jsou těsně vedle sebe, takže to není
-          // teorie. Proto jen střed rámečku: kód, na který člověk míří,
-          // ho pokryje vždycky, soused skoro nikdy.
+          // Kód se hledá jen v nakresleném rámečku – na archu jsou
+          // etikety těsně vedle sebe a bez výřezu se občas načetla
+          // sousední.
+          //
+          // Výřez je celý rámeček, ne menší: dokumentace knihovny sice
+          // tvrdí, že stačí kód, který do výřezu zasahuje, ale Android
+          // chce všechny čtyři rohy kódu uvnitř a iOS hledá jen ve
+          // výřezu. S polovičním výřezem musel být kód v obraze malý
+          // a načítal se pomalu. Celý rámeček soused stejně nepustí –
+          // ten se do něj celý nevejde.
           LayoutBuilder(
             builder: (context, rozmery) => MobileScanner(
               controller: _ovladac,
               onDetect: _zQr,
               scanWindow: Rect.fromCenter(
                 center: rozmery.biggest.center(Offset.zero),
-                width: _Zamerovac.velikost * _podilVyrezu,
-                height: _Zamerovac.velikost * _podilVyrezu,
+                width: _Zamerovac.velikost,
+                height: _Zamerovac.velikost,
               ),
             ),
           ),
@@ -218,10 +227,6 @@ class _SkenerObrazovkaState extends ConsumerState<SkenerObrazovka> {
     );
   }
 }
-
-/// Jaká část rámečku (po stranách) se opravdu prohledává – viz komentář
-/// u `scanWindow`.
-const double _podilVyrezu = 0.5;
 
 class _Zamerovac extends StatelessWidget {
   const _Zamerovac();
