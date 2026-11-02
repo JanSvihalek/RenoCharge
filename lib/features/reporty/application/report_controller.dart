@@ -20,6 +20,7 @@ import '../../nabijeni/application/nabijeni_providery.dart';
 import '../../nabijeni/domain/relace.dart';
 import '../../vozidla/application/vozidla_providery.dart';
 import '../domain/report.dart';
+import '../domain/zaznam_exportu.dart';
 import 'exporty_providery.dart';
 import 'report_pdf.dart';
 import 'report_xlsx.dart';
@@ -59,7 +60,7 @@ class ReportChyba extends StavReportu {
   final AppChyba chyba;
 }
 
-/// Vytvoření PDF reportu a jeho předání do systémového sdílení.
+/// Vytvoření reportů a jejich předání do systémového sdílení.
 class ReportController extends Notifier<StavReportu> {
   @override
   StavReportu build() => const ReportPripraven();
@@ -70,10 +71,53 @@ class ReportController extends Notifier<StavReportu> {
     if (state is ReportChyba) state = const ReportPripraven();
   }
 
+  /// Vytvoří report nabíjení v zadaných formátech a předá ho systémovému
+  /// sdílení – oba soubory najednou, ať se dají poslat v jednom mailu.
+  ///
   /// Vrací počet nabíjení v reportu, nebo `null` při chybě. Prázdné
   /// období není chyba – report se vytvoří a řekne, že nic nenašel.
-  Future<int?> vytvorASdilej({
+  Future<int?> vytvorNabijeni({
     required Obdobi obdobi,
+    required Set<FormatExportu> formaty,
+    required bool sFotkami,
+  }) async {
+    final pocet = await _sestavASdilej(
+      obdobi: obdobi,
+      formaty: formaty,
+      sFotkami: sFotkami,
+    );
+    final uid = ref.read(uidProvider);
+    if (pocet != null && uid != null) {
+      _zapisStopu(
+        uid: uid,
+        obdobi: obdobi,
+        pocet: pocet,
+        sFotkami: sFotkami,
+        formaty: formaty,
+      );
+    }
+    return pocet;
+  }
+
+  /// Znovu vyrobí a nasdílí report z historie.
+  ///
+  /// Hotové soubory se nikam neukládají, takže se skládají z aktuálních
+  /// dat. Dokončené záznamy se nemění, ale nabíjení do období dopsané
+  /// později v novém souboru bude. Nová stopa nevzniká: je to tentýž
+  /// report a v historii by jinak byl dvakrát.
+  ///
+  /// U reportů z doby, kdy se formát neukládal, se vytvoří PDF.
+  Future<int?> sdilejZnovu(ZaznamExportu export) => _sestavASdilej(
+    obdobi: export.obdobi,
+    formaty: export.formaty.isEmpty
+        ? const {FormatExportu.pdf}
+        : export.formaty,
+    sFotkami: export.sFotkami,
+  );
+
+  Future<int?> _sestavASdilej({
+    required Obdobi obdobi,
+    required Set<FormatExportu> formaty,
     required bool sFotkami,
   }) async {
     if (probiha) return null;
@@ -91,32 +135,46 @@ class ReportController extends Notifier<StavReportu> {
           .read(nabijeniRepositoryProvider)
           .nactiZaObdobi(uid: uid, od: obdobi.od, doKonce: obdobi.doExkluzivne);
 
-      final polozky = await _slozPolozky(relace, sFotkami: sFotkami);
+      final pdf = formaty.contains(FormatExportu.pdf);
+      // Fotky jsou jen v PDF, kvůli samotné tabulce se nestahují.
+      final polozky = await _slozPolozky(relace, sFotkami: pdf && sFotkami);
 
       state = const ReportSestavuje();
-      final bajty = await (await ReportPdf.nacti()).sestav(
-        PodkladReportu(
-          jmeno: profil.jmeno,
-          osobniCislo: profil.osobniCislo,
-          obdobi: obdobi,
-          polozky: polozky,
-          vytvorenoAt: DateTime.now(),
-        ),
-      );
-
-      await Printing.sharePdf(
-        bytes: bajty,
-        filename: nazevSouboru(profil.jmeno, obdobi),
-        subject:
-            'Nabíjení ${Format.datum(obdobi.od)} – '
-            '${Format.datum(obdobi.doVcetne)}',
-      );
-
-      _zapisStopu(
-        uid: uid,
+      final podklad = PodkladReportu(
+        jmeno: profil.jmeno,
+        osobniCislo: profil.osobniCislo,
         obdobi: obdobi,
-        pocet: polozky.length,
-        sFotkami: sFotkami,
+        polozky: polozky,
+        vytvorenoAt: DateTime.now(),
+      );
+
+      final slozka = (await getTemporaryDirectory()).path;
+      Future<XFile> uloz(String pripona, String mime, List<int> bajty) async {
+        final soubor = File(
+          '$slozka/${nazevSouboru(profil.jmeno, obdobi, pripona: pripona)}',
+        );
+        await soubor.writeAsBytes(bajty, flush: true);
+        return XFile(soubor.path, mimeType: mime);
+      }
+
+      // Přes share_plus, ne přes Printing.sharePdf: ten umí jen jeden
+      // soubor a na Androidu má natvrdo typ application/pdf.
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            if (pdf)
+              await uloz(
+                'pdf',
+                'application/pdf',
+                await (await ReportPdf.nacti()).sestav(podklad),
+              ),
+            if (formaty.contains(FormatExportu.xlsx))
+              await uloz('xlsx', _mimeXlsx, ReportXlsx.sestav(podklad)),
+          ],
+          subject:
+              'Nabíjení ${Format.datum(obdobi.od)} – '
+              '${Format.datum(obdobi.doVcetne)}',
+        ),
       );
 
       state = const ReportPripraven();
@@ -141,6 +199,7 @@ class ReportController extends Notifier<StavReportu> {
     required Obdobi obdobi,
     required int pocet,
     required bool sFotkami,
+    required Set<FormatExportu> formaty,
   }) {
     unawaited(
       ref
@@ -150,6 +209,7 @@ class ReportController extends Notifier<StavReportu> {
             obdobi: obdobi,
             pocetZaznamu: pocet,
             sFotkami: sFotkami,
+            formaty: formaty,
           )
           .catchError((Object _) {}),
     );
@@ -206,72 +266,6 @@ class ReportController extends Notifier<StavReportu> {
       );
     }
     return polozky;
-  }
-
-  /// Tabulka nabíjení do XLSX: datum, vozidlo, počáteční a koncový stav,
-  /// spotřeba a součet. Bez fotek – kdo je chce, vezme si PDF.
-  ///
-  /// Vrací počet nabíjení v tabulce, nebo `null` při chybě.
-  Future<int?> vytvorTabulku({required Obdobi obdobi}) async {
-    if (probiha) return null;
-
-    final uid = ref.read(uidProvider);
-    final profil = ref.read(profilProvider).value;
-    if (uid == null || profil == null) {
-      state = const ReportChyba(NeniPrihlasen());
-      return null;
-    }
-
-    try {
-      state = const ReportNacitaZaznamy();
-      final relace = await ref
-          .read(nabijeniRepositoryProvider)
-          .nactiZaObdobi(uid: uid, od: obdobi.od, doKonce: obdobi.doExkluzivne);
-
-      final polozky = await _slozPolozky(relace, sFotkami: false);
-
-      state = const ReportSestavuje();
-      final bajty = ReportXlsx.sestav(
-        PodkladReportu(
-          jmeno: profil.jmeno,
-          osobniCislo: profil.osobniCislo,
-          obdobi: obdobi,
-          polozky: polozky,
-          vytvorenoAt: DateTime.now(),
-        ),
-      );
-
-      // Sdílí se přes share_plus, ne přes Printing.sharePdf – ten má na
-      // Androidu natvrdo typ application/pdf a tabulka by odešla
-      // označená jako PDF.
-      final soubor = File(
-        '${(await getTemporaryDirectory()).path}/'
-        '${nazevSouboru(profil.jmeno, obdobi, pripona: 'xlsx')}',
-      );
-      await soubor.writeAsBytes(bajty, flush: true);
-
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(soubor.path, mimeType: _mimeXlsx)],
-          subject:
-              'Nabíjení ${Format.datum(obdobi.od)} – '
-              '${Format.datum(obdobi.doVcetne)}',
-        ),
-      );
-
-      _zapisStopu(
-        uid: uid,
-        obdobi: obdobi,
-        pocet: polozky.length,
-        sFotkami: false,
-      );
-
-      state = const ReportPripraven();
-      return polozky.length;
-    } catch (chyba) {
-      state = ReportChyba(AppChyba.zFirebase(chyba));
-      return null;
-    }
   }
 
   /// Hromadný export stavů odběrných míst do Excelu – jeden řádek na

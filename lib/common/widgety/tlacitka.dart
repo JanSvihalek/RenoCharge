@@ -207,6 +207,7 @@ class VolbaKarta extends StatelessWidget {
     required this.child,
     this.vyska = Rozmery.vyskaRadku,
     this.vycentrovat = false,
+    this.nahoru = false,
   });
 
   final bool vybrano;
@@ -214,6 +215,10 @@ class VolbaKarta extends StatelessWidget {
   final Widget child;
   final double vyska;
   final bool vycentrovat;
+
+  /// Obsah začne nahoře. Pro karty vedle sebe, které roztáhne ta nejvyšší
+  /// z nich – nadpisy tak zůstanou v jedné výšce.
+  final bool nahoru;
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +234,11 @@ class VolbaKarta extends StatelessWidget {
           borderRadius: BorderRadius.circular(Rozmery.radiusPolozky),
           border: Border.all(color: vybrano ? b.accent : b.border, width: 2),
         ),
-        alignment: vycentrovat ? Alignment.center : Alignment.centerLeft,
+        alignment: switch ((vycentrovat, nahoru)) {
+          (true, _) => Alignment.center,
+          (_, true) => Alignment.topLeft,
+          _ => Alignment.centerLeft,
+        },
         child: child,
       ),
     );

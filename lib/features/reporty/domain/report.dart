@@ -24,6 +24,9 @@ class Obdobi {
   /// za rok by tak z reportu vypadla poslední hodina.
   DateTime get doExkluzivne => nasledujiciDen(doVcetne);
 
+  bool obsahuje(DateTime kdy) =>
+      !kdy.isBefore(od) && kdy.isBefore(doExkluzivne);
+
   static DateTime nasledujiciDen(DateTime den) =>
       DateTime(den.year, den.month, den.day + 1);
 

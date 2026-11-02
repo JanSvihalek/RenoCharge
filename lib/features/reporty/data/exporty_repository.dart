@@ -28,6 +28,7 @@ class ExportyRepository {
     required Obdobi obdobi,
     required int pocetZaznamu,
     required bool sFotkami,
+    required Set<FormatExportu> formaty,
   }) async {
     try {
       await _exporty.add(
@@ -37,6 +38,7 @@ class ExportyRepository {
           pocetZaznamu: pocetZaznamu,
           sFotkami: sFotkami,
           vytvorenoAt: DateTime.now(),
+          formaty: formaty,
         ),
       );
     } catch (chyba) {

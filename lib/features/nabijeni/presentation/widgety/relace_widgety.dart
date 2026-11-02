@@ -101,24 +101,12 @@ class PredelMesice extends ConsumerWidget {
                   ).textTheme.titleMedium?.copyWith(color: b.accent),
                 )
               else ...[
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Slovo zůstává u částky i když je částka velká –
-                    // fakturuje se mimo aplikaci a jinou sazbou.
-                    Text(
-                      'orientačně ',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    Text(
-                      castka,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(color: b.penize),
-                    ),
-                  ],
+                Text(
+                  castka,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: b.penize,
+                    fontSize: 22,
+                  ),
                 ),
                 const SizedBox(height: 1),
                 Text(
@@ -134,92 +122,26 @@ class PredelMesice extends ConsumerWidget {
   }
 }
 
-/// Stopa po vytvořeném reportu, v historii mezi relacemi.
+/// Řádek v seznamu relací: vozidlo, datum a spotřeba, vpravo částka a stav.
 ///
-/// Leží tam, kam sahá konec jeho období, a je nakreslená **jako čára**:
-/// všechno pod ní už report zahrnul. Tohle je celý smysl toho záznamu –
-/// stačí se podívat, kde čára je, a ví se, kde příště navázat.
-///
-/// Úmyslně tlumená a bez rámečku: není to záznam nabíjení, jen značka
-/// v seznamu. Rozkliknout se nedá – hotové PDF se nikam neukládá,
-/// aplikace ho předala systémovému sdílení a víc o něm neví.
-class RadekExportu extends ConsumerWidget {
-  const RadekExportu(this.polozka, {super.key});
-
-  final ExportSeSpotrebou polozka;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final b = context.barvy;
-    final export = polozka.export;
-    final pocet = export.pocetZaznamu == 0
-        ? 'bez záznamů'
-        : '${export.pocetZaznamu} nabíjení';
-
-    // Bez zadané sazby nese roli spotřeba – jinak by v řádku zbyl jen
-    // počet záznamů a nebylo by vidět, o kolik v reportu šlo.
-    final kolik =
-        orientacniCastka(ref, polozka.celkemKwh) ??
-        '${Format.kwh(polozka.celkemKwh)} kWh';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.ios_share, size: 16, color: b.textFaint),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Report ${Format.datum(export.obdobi.od)} – '
-                      '${Format.datum(export.obdobi.doVcetne)}',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: b.textDim),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      'vytvořen ${Format.datum(export.vytvorenoAt)} · '
-                      '$pocet · níž je vše zahrnuté',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Šedá, ne zelená: v měsíci má být jedna hlavní částka –
-              // ta v předělu. Kdyby svítily obě stejně, přetahovaly by
-              // se o pozornost a člověk by musel číst, která je která.
-              Text(
-                kolik,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: b.textDim,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(height: 1, color: b.border),
-        ],
-      ),
-    );
-  }
-}
-
-/// Řádek v seznamu relací (domovská obrazovka i historie).
+/// Stav říká, co s nabíjením ještě zbývá udělat: `NOVÉ` čeká na report,
+/// `V reportu` je vyřízené. Dřív tu byl u všech stejný odznak „dokončeno"
+/// a mezi nabíjeními ležely řádky reportů, ze kterých se to muselo
+/// odvozovat.
 class RadekRelace extends ConsumerWidget {
-  const RadekRelace({super.key, required this.relace, required this.onTap});
+  const RadekRelace({
+    super.key,
+    required this.relace,
+    required this.onTap,
+    this.vReportu,
+  });
 
   final Relace relace;
   final VoidCallback? onTap;
+
+  /// `null`, dokud se reporty nenačetly – pak se stav neukazuje, jinak by
+  /// po chybě načítání bylo všechno „nové".
+  final bool? vReportu;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -227,9 +149,19 @@ class RadekRelace extends ConsumerWidget {
     final castka = orientacniCastka(ref, relace.spotreba);
     final podtitulek = relace.probiha
         ? 'Probíhá od ${Format.cas(relace.zahajeno)}'
-        : '${Format.datum(relace.zahajeno)} · '
-              '${Format.kwh(relace.spotreba ?? 0)} kWh'
-              '${castka == null ? '' : ' · $castka'}';
+        : '${Format.denAMesic(relace.zahajeno)} · '
+              '${Format.kwh(relace.spotreba ?? 0)} kWh';
+    final stav = switch ((relace.stav, vReportu)) {
+      (StavRelace.dokonceno, true) => const _VReportu(),
+      (StavRelace.dokonceno, false) => StavovyOdznak(
+        popisek: 'NOVÉ',
+        pozadi: b.accentDim,
+        barvaTextu: b.accent,
+      ),
+      (StavRelace.dokonceno, null) => null,
+      // Běžící a schválené nabíjení říká víc jeho stav než report.
+      _ => OdznakStavu(relace.stav),
+    };
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -264,11 +196,42 @@ class RadekRelace extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              OdznakStavu(relace.stav),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (castka != null)
+                    Text(
+                      castka,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  if (castka != null && stav != null) const SizedBox(height: 4),
+                  ?stav,
+                ],
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _VReportu extends StatelessWidget {
+  const _VReportu();
+
+  @override
+  Widget build(BuildContext context) {
+    final b = context.barvy;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.check, size: 14, color: b.textDim),
+        const SizedBox(width: 4),
+        Text('V reportu', style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }

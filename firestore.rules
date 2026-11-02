@@ -249,7 +249,7 @@ service cloud.firestore {
         && nova().uid == ja()
         && nova().keys().hasOnly([
           'uid', 'od', 'do_vcetne', 'pocet_zaznamu', 's_fotkami',
-          'vytvoreno_at'
+          'vytvoreno_at', 'formaty'
         ])
         && nova().keys().hasAll([
           'uid', 'od', 'do_vcetne', 'pocet_zaznamu', 'vytvoreno_at'
@@ -259,7 +259,11 @@ service cloud.firestore {
         && nova().do_vcetne >= nova().od
         && nova().pocet_zaznamu is int
         && nova().pocet_zaznamu >= 0
-        && nova().vytvoreno_at is timestamp;
+        && nova().vytvoreno_at is timestamp
+        // Přibylo později, starší verze aplikace ho neposílá.
+        && (!nova().keys().hasAny(['formaty'])
+            || (nova().formaty is list
+                && nova().formaty.hasOnly(['pdf', 'xlsx'])));
 
       // Report se buď vytvořil, nebo ne. Přepsat ani smazat stopu nejde –
       // jinak by tvrdila něco jiného, než co se doopravdy stalo.

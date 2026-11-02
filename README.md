@@ -289,11 +289,25 @@ obrazovku se zvětšováním prsty. Kvůli tomu se fotí – při kontrole odeč
 je potřeba si číslo na displeji přiblížit a náhled ve dvou sloupcích je
 na to malý.
 
-## Report do PDF
+## Report do PDF a Excelu
 
-Nad historií je tlačítko exportu: uživatel zvolí období (zkratky *tento
-měsíc* / *minulý měsíc*, nebo vlastní rozsah) a aplikace vyrobí PDF,
-které rovnou předá systémovému sdílení – odtud se dá poslat mailem.
+Nad historií je tlačítko exportu a dokud něco čeká na report, tak i karta
+*„N nových nabíjení k exportu"*. Obojí otevře panel zespodu: období (*jen
+nové*, nebo vlastní), formát a historie reportů. PDF a Excel jdou vybrat
+i oba naráz a odejdou jedním sdílením, takže se dají poslat v jednom
+mailu.
+
+**Co je nové, se počítá ze záznamů, neukládá se.** Nabíjení je v reportu,
+když spadá do jeho období a bylo dokončené ještě před jeho vytvořením.
+Samotné datum nestačí: nabíjení zahájené v poslední den období a ukončené
+až po reportu v něm není a jinak by se nikdy nevyfakturovalo. Proto taky
+*jen nové* začíná dnem po posledním reportu, leda by bylo nové nabíjení
+starší – pak začíná jím.
+
+**Hotové soubory se neukládají.** Tlačítko sdílení v historii je sestaví
+znovu z aktuálních dat, ve stejném formátu a bez nového záznamu. Nabíjení
+do období dopsané později v nich proto bude. Reporty z doby před ukládáním
+formátu se vytvoří jako PDF.
 
 Rozvržení je tabulka všech nabíjení se součtem, za ní oddíl s fotkami po
 dvojicích začátek/konec. Kdo řeší jen čísla, dál nelistuje.
@@ -335,7 +349,9 @@ uživatele, ne účetní údaj**, a podle toho je to postavené:
   starých sazeb.
 * **Do PDF reportu se částka nedává.** Report je podklad k fakturaci
   a orientační číslo v něm by svádělo k tomu brát ho jako závazné.
-* Všude, kde se zobrazuje, je uvozená slovem „orientačně".
+* V přehledu se ukazuje bez slova „orientačně", na přání zadavatele:
+  v řádcích a předělech historie je to zbytečný šum. Pořád je to odhad
+  podle vlastní sazby uživatele.
 
 Sazba je v profilu (`cena_za_kwh`), aby přežila přeinstalaci. `null`
 znamená „nezadáno" – nula by znamenala „nabíjím zdarma", což je něco

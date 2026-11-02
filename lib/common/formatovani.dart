@@ -10,6 +10,7 @@ abstract final class Format {
   static final NumberFormat _castka = NumberFormat('#,##0.00', 'cs_CZ');
   static final NumberFormat _sazba = NumberFormat('#,##0.00', 'cs_CZ');
   static final DateFormat _datum = DateFormat('d. M. y', 'cs_CZ');
+  static final DateFormat _denAMesic = DateFormat('d. M.', 'cs_CZ');
   static final DateFormat _mesic = DateFormat('LLLL y', 'cs_CZ');
   static final DateFormat _cas = DateFormat('HH:mm', 'cs_CZ');
 
@@ -25,6 +26,15 @@ abstract final class Format {
 
   /// `1. 8. 2026`
   static String datum(DateTime cas) => _datum.format(cas.toLocal());
+
+  /// `2. 11.` – tam, kde je rok zřejmý z okolí, třeba z předělu měsíce.
+  static String denAMesic(DateTime cas) => _denAMesic.format(cas.toLocal());
+
+  /// `13. 9. – 28. 10. 2026`, přes přelom roku s oběma roky.
+  static String rozsahDnu(DateTime od, DateTime doVcetne) {
+    final zacatek = od.year == doVcetne.year ? denAMesic(od) : datum(od);
+    return '$zacatek – ${datum(doVcetne)}';
+  }
 
   /// `Červenec 2026` – pro předěly mezi měsíci v historii.
   ///

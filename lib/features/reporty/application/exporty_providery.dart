@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../common/firebase/firebase_providery.dart';
 import '../../auth/application/auth_providery.dart';
+import '../../nabijeni/application/nabijeni_providery.dart';
+import '../../nabijeni/domain/relace.dart';
 import '../data/exporty_repository.dart';
 import '../domain/zaznam_exportu.dart';
 
@@ -14,6 +16,17 @@ final historieExportuProvider = StreamProvider<List<ZaznamExportu>>((ref) {
   final uid = ref.watch(uidProvider);
   if (uid == null) return Stream.value(const <ZaznamExportu>[]);
   return ref.watch(exportyRepositoryProvider).sleduj(uid);
+});
+
+/// Dokončená nabíjení, která ještě žádný report nezahrnul.
+///
+/// `null`, dokud není načtená historie i seznam reportů. Bez reportů by
+/// jinak všechno vypadalo jako nové – a to ani po chybě načítání nesmí.
+final noveKExportuProvider = Provider<List<Relace>?>((ref) {
+  final historie = ref.watch(historieProvider).value;
+  final exporty = ref.watch(historieExportuProvider).value;
+  if (historie == null || exporty == null) return null;
+  return noveKExportu(historie, exporty);
 });
 
 /// Report, jehož období sahá **nejdál**, nebo `null`. Podle něj se nabízí

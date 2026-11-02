@@ -28,9 +28,10 @@ class DomovskaObrazovka extends ConsumerWidget {
     final profil = ref.watch(profilProvider).value;
     final otevrena = ref.watch(otevrenaRelaceProvider);
     final historie = ref.watch(historieProvider);
-    // Chybu tady neřešíme: bez seznamu exportů je historie pořád
-    // historie, jen bez poznámek o vytvořených reportech.
-    final exporty = ref.watch(historieExportuProvider).value ?? const [];
+    // Chybu tady neřešíme: bez seznamu reportů je historie pořád historie,
+    // jen se u ní neukazuje, co už v nějakém je.
+    final exporty = ref.watch(historieExportuProvider).value;
+    final nove = ref.watch(noveKExportuProvider);
 
     final relace = otevrena.value;
 
@@ -42,7 +43,10 @@ class DomovskaObrazovka extends ConsumerWidget {
         24,
       ),
       children: [
-        _Hlavicka(jmeno: profil?.krestniJmeno),
+        _Hlavicka(
+          jmeno: profil?.krestniJmeno,
+          maNove: nove != null && nove.isNotEmpty,
+        ),
         if (otevrena.hasError)
           ChybovyBlok(
             zprava: 'Stav nabíjení se nepodařilo načíst.',
@@ -67,6 +71,7 @@ class DomovskaObrazovka extends ConsumerWidget {
               onTap: () => otevriPrimyZapis(context),
             ),
           ),
+        if (nove != null && nove.isNotEmpty) _KartaNovych(pocet: nove.length),
         switch (historie) {
           AsyncError() => ChybovyBlok(
             zprava: 'Historii se nepodařilo načíst.',
@@ -81,21 +86,14 @@ class DomovskaObrazovka extends ConsumerWidget {
           // je „kolik jsem nabil minulý měsíc", ne „kolik celkem".
           AsyncData(:final value) => Column(
             children: [
-              for (final skupina in seskupPoMesicich(
-                value,
-                exporty: exporty,
-              )) ...[
+              for (final skupina in seskupPoMesicich(value)) ...[
                 PredelMesice(skupina),
-                // Report leží mezi relacemi podle konce svého období:
-                // co je pod čarou, to už zahrnul.
-                for (final polozka in skupina.polozky)
-                  switch (polozka) {
-                    PolozkaRelace(:final relace) => RadekRelace(
-                      relace: relace,
-                      onTap: () => otevriDetail(context, relace.id),
-                    ),
-                    PolozkaExportu(:final polozka) => RadekExportu(polozka),
-                  },
+                for (final relace in skupina.relace)
+                  RadekRelace(
+                    relace: relace,
+                    vReportu: exporty?.any((e) => e.zahrnuje(relace)),
+                    onTap: () => otevriDetail(context, relace.id),
+                  ),
               ],
             ],
           ),
@@ -109,10 +107,68 @@ class DomovskaObrazovka extends ConsumerWidget {
   }
 }
 
+/// Kolik nabíjení ještě nezahrnul žádný report, a cesta k exportu.
+class _KartaNovych extends ConsumerWidget {
+  const _KartaNovych({required this.pocet});
+
+  final int pocet;
+
+  static String _nadpis(int pocet) => switch (pocet) {
+    1 => '1 nové nabíjení k exportu',
+    >= 2 && <= 4 => '$pocet nová nabíjení k exportu',
+    _ => '$pocet nových nabíjení k exportu',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final posledni = ref.watch(posledniExportProvider);
+    return Karta(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _nadpis(pocet),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  posledni == null
+                      ? 'Zatím žádný report'
+                      : 'Poslední report '
+                            '${Format.denAMesic(posledni.vytvorenoAt)} · do '
+                            '${Format.denAMesic(posledni.obdobi.doVcetne)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 112,
+            child: PrimarniTlacitko(
+              popisek: 'Exportovat',
+              vyska: 44,
+              onTap: () => otevriExport(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Hlavicka extends ConsumerWidget {
-  const _Hlavicka({required this.jmeno});
+  const _Hlavicka({required this.jmeno, required this.maNove});
 
   final String? jmeno;
+
+  /// Tečka u ikony exportu: je co exportovat.
+  final bool maNove;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -140,11 +196,33 @@ class _Hlavicka extends ConsumerWidget {
             ),
           ),
           // Export je tu proto, že historie je hned pod hlavičkou –
-          // vyjede se z ní PDF, takže tlačítko patří k ní.
-          IkonoveTlacitko(
-            ikona: Icons.ios_share,
-            popisPristupnosti: 'Exportovat období do PDF',
-            onTap: () => otevriExport(context),
+          // vyjede se z ní report, takže tlačítko patří k ní.
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IkonoveTlacitko(
+                ikona: Icons.ios_share,
+                popisPristupnosti: maNove
+                    ? 'Exportovat nabíjení, jsou nová k exportu'
+                    : 'Exportovat nabíjení',
+                onTap: () => otevriExport(context),
+              ),
+              if (maNove)
+                Positioned(
+                  top: 5,
+                  right: 5,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: context.barvy.accent,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 8),
           IkonoveTlacitko(
