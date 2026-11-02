@@ -234,6 +234,135 @@ class ReportPdf {
     ),
   ];
 
+  /// Přehled stavů odběrných míst za období, jeden řádek na místo. Tytéž
+  /// údaje jako tabulka do Excelu, jen k přečtení a poslání. Na šířku –
+  /// sloupců je moc na to, aby se vešly na výšku.
+  Future<Uint8List> sestavStavy(PodkladStavu podklad) async {
+    final dokument = pw.Document(
+      title: 'Stavy odběrných míst',
+      author: 'RenoEnergy',
+    );
+
+    String kwh(double? hodnota) => hodnota == null ? '–' : Format.kwh(hodnota);
+    String den(DateTime? kdy) => kdy == null ? '–' : Format.datum(kdy);
+
+    dokument.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 22),
+        theme: pw.ThemeData.withFont(base: zakladni, bold: tucne),
+        footer: _pata,
+        build: (context) => [
+          pw.Text(
+            'Stavy odběrných míst',
+            style: pw.TextStyle(font: tucne, fontSize: 18),
+          ),
+          pw.SizedBox(height: 3),
+          pw.Text(
+            [
+              podklad.pobocka.popisek,
+              if (podklad.druh != null) podklad.druh!.nazev,
+              'období ${Format.datum(podklad.obdobi.od)} – '
+                  '${Format.datum(podklad.obdobi.doVcetne)}',
+            ].join(' · '),
+            style: const pw.TextStyle(fontSize: 10),
+          ),
+          pw.Text(
+            'Vytvořeno ${Format.datum(podklad.vytvorenoAt)} '
+            'v ${Format.cas(podklad.vytvorenoAt)}',
+            style: const pw.TextStyle(fontSize: 8, color: _seda),
+          ),
+          pw.SizedBox(height: 12),
+          pw.TableHelper.fromTextArray(
+            headers: const [
+              'Druh',
+              'Umístění',
+              'Číslo',
+              'Minulý stav',
+              'Odečteno',
+              'Nový stav',
+              'Odečteno',
+              'Spotřeba',
+              'Změna',
+              'Poznámka',
+            ],
+            data: [
+              for (final r in podklad.radky)
+                [
+                  r.misto.druh.nazev,
+                  r.misto.nazev,
+                  r.misto.cislo,
+                  kwh(r.minuly?.hodnota),
+                  den(r.minuly?.odectenoAt),
+                  kwh(r.posledni?.hodnota),
+                  den(r.posledni?.odectenoAt),
+                  r.spotreba == null
+                      ? '–'
+                      : '${Format.kwh(r.spotreba!)} ${r.misto.druh.jednotka}',
+                  _zmena(r.zmenaProcent),
+                  r.poznamka,
+                ],
+            ],
+            border: const pw.TableBorder(
+              horizontalInside: pw.BorderSide(color: _linka, width: 0.5),
+              bottom: pw.BorderSide(color: _linka, width: 0.5),
+            ),
+            headerDecoration: const pw.BoxDecoration(color: _zahlavi),
+            headerStyle: pw.TextStyle(font: tucne, fontSize: 8),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            cellPadding: const pw.EdgeInsets.symmetric(
+              horizontal: 4,
+              vertical: 3,
+            ),
+            headerAlignment: pw.Alignment.centerLeft,
+            cellAlignments: const {
+              3: pw.Alignment.centerRight,
+              5: pw.Alignment.centerRight,
+              7: pw.Alignment.centerRight,
+              8: pw.Alignment.centerRight,
+            },
+            columnWidths: const {
+              0: pw.FlexColumnWidth(1.3),
+              1: pw.FlexColumnWidth(2.4),
+              2: pw.FlexColumnWidth(1.2),
+              3: pw.FlexColumnWidth(1.3),
+              4: pw.FlexColumnWidth(1.2),
+              5: pw.FlexColumnWidth(1.3),
+              6: pw.FlexColumnWidth(1.2),
+              7: pw.FlexColumnWidth(1.4),
+              8: pw.FlexColumnWidth(0.8),
+              9: pw.FlexColumnWidth(2.2),
+            },
+          ),
+          pw.SizedBox(height: 10),
+          // Po druzích: kWh a m³ se sečíst nedají. V jednom sloupci, ať se
+          // součty nerozdělí přes konec stránky.
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              for (final druh in podklad.druhy)
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.end,
+                  children: [
+                    pw.Text(
+                      'Celkem ${druh.nazev.toLowerCase()}: ',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.Text(
+                      '${Format.kwh(podklad.celkemZa(druh))} ${druh.jednotka}',
+                      style: pw.TextStyle(font: tucne, fontSize: 10),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    return dokument.save();
+  }
+
   /// Arch QR štítků na samolepicí etikety **52,5 × 29,7 mm, 4 × 10 na A4**
   /// (40 kusů na arch, bez okrajů – etikety jdou až ke hraně papíru).
   ///

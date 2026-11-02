@@ -6,7 +6,8 @@ import 'package:archive/archive.dart';
 import '../../../common/formatovani.dart';
 import '../domain/report.dart';
 
-/// Tabulky pro Excel: nabíjení a hromadný přehled stavů odběrných míst.
+/// Tabulky pro Excel: nabíjení, přehled stavů odběrných míst a odečty
+/// jednoho místa.
 ///
 /// Soubor se skládá ručně, ne knihovnou: jediný balíček, který XLSX umí
 /// zapisovat, stojí na `archive 3`, zatímco `image` (zmenšování fotek
@@ -106,12 +107,7 @@ abstract final class ReportXlsx {
     for (final r in podklad.radky) {
       cislo++;
       final m = r.misto;
-      final poznamka = [
-        if (r.posledni == null) 'bez odečtu v období',
-        if (r.vymenaMeridla) 'výměna měřidla – spotřeba jen od výměny',
-        if (!m.aktivni) 'vyřazené',
-        ?r.posledni?.poznamka,
-      ].where((t) => t.isNotEmpty).join('; ');
+      final poznamka = r.poznamka;
       radky
         ..write('<row r="$cislo">')
         ..write(_text(_adresa(0, cislo), m.druh.nazev))
@@ -173,11 +169,93 @@ abstract final class ReportXlsx {
       )
       ..write('</row>');
 
+    return _obalList(radky, _sirkyStavu);
+  }
+
+  /// Odečty jednoho místa za období: co tabulka stavů dává za celé období,
+  /// tady po jednotlivých odečtech.
+  static Uint8List sestavOdecty(PodkladElektromeru podklad) =>
+      _zabal(nazevListu: 'Odečty', list: _listOdectu(podklad));
+
+  static String _listOdectu(PodkladElektromeru podklad) {
+    final jednotka = podklad.elektromer.druh.jednotka;
+    final hlavicka = [
+      'Datum',
+      'Stav ($jednotka)',
+      'Spotřeba ($jednotka)',
+      'Změna',
+      'Poznámka',
+    ];
+
+    final radky = StringBuffer();
+    var cislo = 1;
+    radky.write('<row r="$cislo">');
+    for (var i = 0; i < hlavicka.length; i++) {
+      radky.write(_text(_adresa(i, cislo), hlavicka[i], styl: _stylNadpis));
+    }
+    radky.write('</row>');
+
+    final prvniDatovy = cislo + 1;
+    for (final p in podklad.polozky) {
+      cislo++;
+      final poznamka = p.odecet.vymenaMeridla
+          ? 'nové měřidlo'
+          : (p.odecet.poznamka ?? '');
+      radky
+        ..write('<row r="$cislo">')
+        ..write(_datum(_adresa(0, cislo), p.odecet.odectenoAt))
+        ..write(_cislo(_adresa(1, cislo), p.odecet.hodnota))
+        ..write(_cislo(_adresa(2, cislo), p.spotreba))
+        ..write(_procenta(_adresa(3, cislo), p.zmenaProcent))
+        ..write(poznamka.isEmpty ? '' : _text(_adresa(4, cislo), poznamka))
+        ..write('</row>');
+    }
+    final posledniDatovy = cislo;
+
+    cislo++;
+    radky
+      ..write('<row r="$cislo">')
+      ..write(_text(_adresa(0, cislo), 'Celkem', styl: _stylNadpis));
+    if (podklad.polozky.isEmpty) {
+      radky.write(_cislo(_adresa(2, cislo), 0, styl: _stylSoucet));
+    } else {
+      radky.write(
+        '<c r="${_adresa(2, cislo)}" s="$_stylSoucet">'
+        '<f>SUM(C$prvniDatovy:C$posledniDatovy)</f>'
+        '<v>${_zapisCislo(podklad.celkovaSpotreba)}</v>'
+        '</c>',
+      );
+    }
+    radky.write('</row>');
+
+    // Po přeposlání mailem z názvu souboru nemusí být zřejmé, co to je.
+    final e = podklad.elektromer;
+    cislo += 2;
+    radky
+      ..write('<row r="$cislo">')
+      ..write(
+        _text(
+          _adresa(0, cislo),
+          [
+            '${e.druh.nazev} · ${e.nazev}',
+            if (e.maCislo) 'č. ${e.cislo}',
+            e.pobocka?.popisek ?? e.pobockaKod,
+            'období ${Format.datum(podklad.obdobi.od)} – '
+                '${Format.datum(podklad.obdobi.doVcetne)}',
+          ].join(' · '),
+        ),
+      )
+      ..write('</row>');
+
+    return _obalList(radky, const [12.0, 16.0, 16.0, 9.0, 30.0]);
+  }
+
+  static String _obalList(StringBuffer radky, List<double> sirky) {
     final sloupce = StringBuffer('<cols>');
-    for (var i = 0; i < _sirkyStavu.length; i++) {
+    for (var i = 0; i < sirky.length; i++) {
       sloupce.write(
         '<col min="${i + 1}" max="${i + 1}" '
-        'width="${_sirkyStavu[i]}" customWidth="1"/>',
+        'width="${sirky[i]}" customWidth="1"/>',
       );
     }
     sloupce.write('</cols>');

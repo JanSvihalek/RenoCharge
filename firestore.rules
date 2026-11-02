@@ -249,7 +249,7 @@ service cloud.firestore {
         && nova().uid == ja()
         && nova().keys().hasOnly([
           'uid', 'od', 'do_vcetne', 'pocet_zaznamu', 's_fotkami',
-          'vytvoreno_at', 'formaty'
+          'vytvoreno_at', 'formaty', 'pobocka_id', 'druh', 'elektromer_id'
         ])
         && nova().keys().hasAll([
           'uid', 'od', 'do_vcetne', 'pocet_zaznamu', 'vytvoreno_at'
@@ -263,7 +263,13 @@ service cloud.firestore {
         // Přibylo později, starší verze aplikace ho neposílá.
         && (!nova().keys().hasAny(['formaty'])
             || (nova().formaty is list
-                && nova().formaty.hasOnly(['pdf', 'xlsx'])));
+                && nova().formaty.hasOnly(['pdf', 'xlsx'])))
+        // Čeho se report týká. U reportů nabíjení chybí.
+        && (!nova().keys().hasAny(['pobocka_id'])
+            || nova().pobocka_id is string)
+        && (!nova().keys().hasAny(['druh']) || nova().druh is string)
+        && (!nova().keys().hasAny(['elektromer_id'])
+            || nova().elektromer_id is string);
 
       // Report se buď vytvořil, nebo ne. Přepsat ani smazat stopu nejde –
       // jinak by tvrdila něco jiného, než co se doopravdy stalo.

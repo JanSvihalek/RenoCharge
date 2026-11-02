@@ -11,11 +11,27 @@ final exportyRepositoryProvider = Provider<ExportyRepository>((ref) {
   return ExportyRepository(db: ref.watch(firestoreProvider));
 });
 
-/// Vytvořené reporty přihlášeného uživatele, od nejnovějšího.
+/// Vytvořené reporty **nabíjení** přihlášeného uživatele, od nejnovějšího.
+///
+/// Reporty odběrných míst leží ve stejné kolekci, ale s nabíjením nemají
+/// nic společného: období odečtů nesmí nabíjení označit jako „v reportu".
 final historieExportuProvider = StreamProvider<List<ZaznamExportu>>((ref) {
   final uid = ref.watch(uidProvider);
   if (uid == null) return Stream.value(const <ZaznamExportu>[]);
-  return ref.watch(exportyRepositoryProvider).sleduj(uid);
+  return ref
+      .watch(exportyRepositoryProvider)
+      .sleduj(uid)
+      .map((vse) => vse.where((e) => e.jeNabijeni).toList());
+});
+
+/// Vytvořené reporty odběrných míst přihlášeného uživatele.
+final exportyMistProvider = StreamProvider<List<ZaznamExportu>>((ref) {
+  final uid = ref.watch(uidProvider);
+  if (uid == null) return Stream.value(const <ZaznamExportu>[]);
+  return ref
+      .watch(exportyRepositoryProvider)
+      .sleduj(uid)
+      .map((vse) => vse.where((e) => !e.jeNabijeni).toList());
 });
 
 /// Dokončená nabíjení, která ještě žádný report nezahrnul.

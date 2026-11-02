@@ -383,11 +383,22 @@ nárůst je ten signál, kvůli kterému se to celé čte.
 Vedle PDF **i tabulka do Excelu**. Kdo hlídá spotřebu, bude chtít data
 k dopočítání.
 
-### Hromadný export stavů
+### Export
 
-Ikona tabulky v hlavičce seznamu míst vyrobí Excel za zvolené období
-pro **to, co je zrovna vidět** – pobočku a případně jeden druh, stejně
-jako u QR štítků. Jeden řádek na místo:
+Ikona sdílení v hlavičce seznamu otevře **export stavů**, odkaz v detailu
+místa **export odečtů** jednoho místa. Oba jsou stejný panel jako
+u nabíjení: *jen nové*, nebo vlastní období, PDF a Excel klidně oba naráz
+jedním sdílením a historie reportů s možností poslat je znovu.
+
+*Jen nové* se počítá stejně jako u nabíjení, tedy z toho, co vzniklo po
+posledním reportu. U přehledu se reporty berou jen ze **stejného výřezu**:
+report za elektřinu neříká nic o plynu, takže by ho nesměl označit jako
+hotový. Stopy po reportech míst leží v `exporty` vedle nabíjení a poznají
+se podle `pobocka_id`; do stavu nabíjení nezasahují.
+
+Přehled stavů je pro **to, co je zrovna vidět** – pobočku a případně jeden
+druh, stejně jako u QR štítků. PDF je na šířku, sloupců je moc na výšku.
+Jeden řádek na místo:
 
 *druh · umístění · číslo · jednotka · minulý stav a datum · nový stav
 a datum · spotřeba · změna v % · poznámka*
@@ -502,9 +513,8 @@ poboček a rolí v aplikaci; obojí dělá správce v konzoli.
    čeká na to, co je na štítcích doopravdy.
 4. **Rozpracováno.** Report jednoho elektroměru do PDF je hotový –
    z detailu, s výběrem období a volitelnými fotkami, tabulka nese stav,
-   spotřebu a změnu proti minulému období v procentech. Hromadný export
-   stavů pobočky do Excelu je hotový, viz výš. Zbývá souhrnné PDF za
-   pobočku.
+   spotřebu a změnu proti minulému období v procentech. Hotový je i export
+   stavů pobočky a odečtů jednoho místa do PDF a Excelu, viz výš.
 
 **Pilot na jedné pobočce.** První měsíc je stejně o stavbě seznamu –
 vyladit to tam, kam se dá dojít pro zpětnou vazbu, a teprve pak pustit

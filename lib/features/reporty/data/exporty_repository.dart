@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../common/chyby.dart';
 import '../../../common/firebase/firebase_providery.dart';
+import '../../elektromery/domain/druh_mista.dart';
 import '../domain/report.dart';
 import '../domain/zaznam_exportu.dart';
 
@@ -29,6 +30,9 @@ class ExportyRepository {
     required int pocetZaznamu,
     required bool sFotkami,
     required Set<FormatExportu> formaty,
+    String? pobockaKod,
+    DruhMista? druh,
+    String? elektromerId,
   }) async {
     try {
       await _exporty.add(
@@ -39,6 +43,9 @@ class ExportyRepository {
           sFotkami: sFotkami,
           vytvorenoAt: DateTime.now(),
           formaty: formaty,
+          pobockaKod: pobockaKod,
+          druh: druh,
+          elektromerId: elektromerId,
         ),
       );
     } catch (chyba) {

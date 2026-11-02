@@ -7,7 +7,7 @@ import '../../../common/motiv/rozmery.dart';
 import '../../../common/widgety/prvky.dart';
 import '../../../common/widgety/tlacitka.dart';
 import '../../nabijeni/presentation/prohlizec_fotky.dart';
-import '../../reporty/presentation/export_obrazovka.dart';
+import '../../reporty/presentation/export_mist_panel.dart';
 import '../application/elektromery_providery.dart';
 import '../application/odecty_controller.dart';
 import '../domain/elektromer.dart';
@@ -158,12 +158,8 @@ class _Obsah extends ConsumerWidget {
 
         const SizedBox(height: 8),
         OdkazoveTlacitko(
-          popisek: 'Export odečtů do PDF',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ExportObrazovka(elektromer: elektromer),
-            ),
-          ),
+          popisek: 'Export odečtů',
+          onTap: () => otevriExportOdectu(context, elektromer),
         ),
         // Jednotlivý štítek se hodí, když se ten nalepený poškodí nebo
         // když místo přibude po hromadném tisku za pobočku.

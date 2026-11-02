@@ -219,6 +219,14 @@ class RadekStavu {
   /// V období se měnilo měřidlo – spotřeba je pak jen od výměny dál,
   /// a proto neúplná.
   final bool vymenaMeridla;
+
+  /// Poznámka k řádku v PDF i v tabulce.
+  String get poznamka => [
+    if (posledni == null) 'bez odečtu v období',
+    if (vymenaMeridla) 'výměna měřidla – spotřeba jen od výměny',
+    if (!misto.aktivni) 'vyřazené',
+    ?posledni?.poznamka,
+  ].where((t) => t.isNotEmpty).join('; ');
 }
 
 /// Vše, co potřebuje tabulka stavů pobočky. Bez Firebase i Flutteru.

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:renocharge/features/auth/application/auth_providery.dart';
 import 'package:renocharge/features/auth/domain/uzivatel.dart';
+import 'package:renocharge/features/elektromery/domain/druh_mista.dart';
 import 'package:renocharge/features/nabijeni/application/nabijeni_providery.dart';
 import 'package:renocharge/features/nabijeni/data/nabijeni_repository.dart';
 import 'package:renocharge/features/nabijeni/domain/relace.dart';
@@ -49,6 +50,9 @@ class _Exporty implements ExportyRepository {
     required int pocetZaznamu,
     required bool sFotkami,
     required Set<FormatExportu> formaty,
+    String? pobockaKod,
+    DruhMista? druh,
+    String? elektromerId,
   }) async => zapsane.add(formaty);
 
   @override

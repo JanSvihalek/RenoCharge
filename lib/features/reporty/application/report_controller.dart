@@ -148,33 +148,18 @@ class ReportController extends Notifier<StavReportu> {
         vytvorenoAt: DateTime.now(),
       );
 
-      final slozka = (await getTemporaryDirectory()).path;
-      Future<XFile> uloz(String pripona, String mime, List<int> bajty) async {
-        final soubor = File(
-          '$slozka/${nazevSouboru(profil.jmeno, obdobi, pripona: pripona)}',
-        );
-        await soubor.writeAsBytes(bajty, flush: true);
-        return XFile(soubor.path, mimeType: mime);
-      }
-
-      // Přes share_plus, ne přes Printing.sharePdf: ten umí jen jeden
-      // soubor a na Androidu má natvrdo typ application/pdf.
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [
-            if (pdf)
-              await uloz(
-                'pdf',
-                'application/pdf',
-                await (await ReportPdf.nacti()).sestav(podklad),
-              ),
-            if (formaty.contains(FormatExportu.xlsx))
-              await uloz('xlsx', _mimeXlsx, ReportXlsx.sestav(podklad)),
-          ],
-          subject:
-              'Nabíjení ${Format.datum(obdobi.od)} – '
-              '${Format.datum(obdobi.doVcetne)}',
-        ),
+      await _sdilej(
+        soubory: [
+          if (pdf)
+            ('pdf', _mimePdf, await (await ReportPdf.nacti()).sestav(podklad)),
+          if (formaty.contains(FormatExportu.xlsx))
+            ('xlsx', _mimeXlsx, ReportXlsx.sestav(podklad)),
+        ],
+        nazev: (pripona) =>
+            nazevSouboru(profil.jmeno, obdobi, pripona: pripona),
+        predmet:
+            'Nabíjení ${Format.datum(obdobi.od)} – '
+            '${Format.datum(obdobi.doVcetne)}',
       );
 
       state = const ReportPripraven();
@@ -183,6 +168,32 @@ class ReportController extends Notifier<StavReportu> {
       state = ReportChyba(AppChyba.zFirebase(chyba));
       return null;
     }
+  }
+
+  /// Uloží soubory do dočasné složky a předá je systémovému sdílení jedním
+  /// sdílením, ať se dají poslat v jednom mailu.
+  ///
+  /// Přes share_plus, ne přes Printing.sharePdf: ten umí jen jeden soubor
+  /// a na Androidu má natvrdo typ application/pdf.
+  Future<void> _sdilej({
+    required List<(String pripona, String mime, List<int> bajty)> soubory,
+    required String Function(String pripona) nazev,
+    required String predmet,
+  }) async {
+    final slozka = (await getTemporaryDirectory()).path;
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [
+          for (final (pripona, mime, bajty) in soubory)
+            await () async {
+              final soubor = File('$slozka/${nazev(pripona)}');
+              await soubor.writeAsBytes(bajty, flush: true);
+              return XFile(soubor.path, mimeType: mime);
+            }(),
+        ],
+        subject: predmet,
+      ),
+    );
   }
 
   /// Poznamená do historie, že report za tohle období vznikl.
@@ -200,6 +211,9 @@ class ReportController extends Notifier<StavReportu> {
     required int pocet,
     required bool sFotkami,
     required Set<FormatExportu> formaty,
+    String? pobockaKod,
+    DruhMista? druh,
+    String? elektromerId,
   }) {
     unawaited(
       ref
@@ -210,6 +224,9 @@ class ReportController extends Notifier<StavReportu> {
             pocetZaznamu: pocet,
             sFotkami: sFotkami,
             formaty: formaty,
+            pobockaKod: pobockaKod,
+            druh: druh,
+            elektromerId: elektromerId,
           )
           .catchError((Object _) {}),
     );
@@ -268,17 +285,20 @@ class ReportController extends Notifier<StavReportu> {
     return polozky;
   }
 
-  /// Hromadný export stavů odběrných míst do Excelu – jeden řádek na
-  /// místo, s minulým a novým stavem, spotřebou a změnou.
+  /// Přehled stavů odběrných míst – jeden řádek na místo, s minulým
+  /// a novým stavem, spotřebou a změnou.
   ///
   /// [mista] jsou ta, která uživatel zrovna vidí v seznamu (pobočka
   /// a případně druh). Vrací počet míst, která mají v období odečet,
-  /// nebo `null` při chybě.
+  /// nebo `null` při chybě. S [zapsatStopu] `false` je to opakované sdílení
+  /// reportu, který už v historii je.
   Future<int?> vytvorStavy({
     required Pobocka pobocka,
     required DruhMista? druh,
     required List<Elektromer> mista,
     required Obdobi obdobi,
+    required Set<FormatExportu> formaty,
+    bool zapsatStopu = true,
   }) async {
     if (probiha) return null;
 
@@ -323,23 +343,37 @@ class ReportController extends Notifier<StavReportu> {
         ),
         vytvorenoAt: DateTime.now(),
       );
-      final bajty = ReportXlsx.sestavStavy(podklad);
-
       final popis = druh == null ? pobocka.kod : '${pobocka.kod} ${druh.nazev}';
-      final soubor = File(
-        '${(await getTemporaryDirectory()).path}/'
-        '${nazevSouboru(popis, obdobi, predpona: 'stavy', pripona: 'xlsx')}',
+      await _sdilej(
+        soubory: [
+          if (formaty.contains(FormatExportu.pdf))
+            (
+              'pdf',
+              _mimePdf,
+              await (await ReportPdf.nacti()).sestavStavy(podklad),
+            ),
+          if (formaty.contains(FormatExportu.xlsx))
+            ('xlsx', _mimeXlsx, ReportXlsx.sestavStavy(podklad)),
+        ],
+        nazev: (pripona) =>
+            nazevSouboru(popis, obdobi, predpona: 'stavy', pripona: pripona),
+        predmet:
+            'Stavy odběrných míst · $popis · '
+            '${Format.datum(obdobi.od)} – ${Format.datum(obdobi.doVcetne)}',
       );
-      await soubor.writeAsBytes(bajty, flush: true);
 
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(soubor.path, mimeType: _mimeXlsx)],
-          subject:
-              'Stavy odběrných míst · $popis · '
-              '${Format.datum(obdobi.od)} – ${Format.datum(obdobi.doVcetne)}',
-        ),
-      );
+      final uid = ref.read(uidProvider);
+      if (zapsatStopu && uid != null) {
+        _zapisStopu(
+          uid: uid,
+          obdobi: obdobi,
+          pocet: vObdobi.length,
+          sFotkami: false,
+          formaty: formaty,
+          pobockaKod: pobocka.kod,
+          druh: druh,
+        );
+      }
 
       state = const ReportPripraven();
       return vObdobi.length;
@@ -349,15 +383,21 @@ class ReportController extends Notifier<StavReportu> {
     }
   }
 
+  static const _mimePdf = 'application/pdf';
   static const _mimeXlsx =
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-  /// Report jednoho elektroměru. Sdílí stav i průběh s reportem
+  /// Odečty jednoho odběrného místa. Sdílí stav i průběh s reportem
   /// nabíjení – pro uživatele je to tatáž operace, jen nad jinými daty.
+  ///
+  /// Fotky se do PDF přikládají, kde jsou: nové odečty je nemají, starší
+  /// z doby, kdy se fotilo, ano. S [zapsatStopu] `false` je to opakované
+  /// sdílení reportu, který už v historii je.
   Future<int?> vytvorProElektromer({
     required Elektromer elektromer,
     required Obdobi obdobi,
-    required bool sFotkami,
+    required Set<FormatExportu> formaty,
+    bool zapsatStopu = true,
   }) async {
     if (probiha) return null;
 
@@ -371,31 +411,53 @@ class ReportController extends Notifier<StavReportu> {
             doKonce: obdobi.doExkluzivne,
           );
 
-      final fotky = sFotkami
+      final pdf = formaty.contains(FormatExportu.pdf);
+      final fotky = pdf
           ? await _stahniFotky(odecty)
           : const <String, Uint8List>{};
 
       state = const ReportSestavuje();
-      final bajty = await (await ReportPdf.nacti()).sestavElektromer(
-        PodkladElektromeru(
-          elektromer: elektromer,
-          obdobi: obdobi,
-          polozky: slozPolozkyOdectu(odecty, fotky: fotky),
-          vytvorenoAt: DateTime.now(),
-        ),
+      final podklad = PodkladElektromeru(
+        elektromer: elektromer,
+        obdobi: obdobi,
+        polozky: slozPolozkyOdectu(odecty, fotky: fotky),
+        vytvorenoAt: DateTime.now(),
       );
 
-      await Printing.sharePdf(
-        bytes: bajty,
-        filename: nazevSouboru(
+      await _sdilej(
+        soubory: [
+          if (pdf)
+            (
+              'pdf',
+              _mimePdf,
+              await (await ReportPdf.nacti()).sestavElektromer(podklad),
+            ),
+          if (formaty.contains(FormatExportu.xlsx))
+            ('xlsx', _mimeXlsx, ReportXlsx.sestavOdecty(podklad)),
+        ],
+        nazev: (pripona) => nazevSouboru(
           '${elektromer.druh.nazev} ${elektromer.nazev}',
           obdobi,
           predpona: 'report-misto',
+          pripona: pripona,
         ),
-        subject:
+        predmet:
             '${elektromer.druh.nazev} · ${elektromer.nazev} · '
             '${Format.datum(obdobi.od)} – ${Format.datum(obdobi.doVcetne)}',
       );
+
+      final uid = ref.read(uidProvider);
+      if (zapsatStopu && uid != null) {
+        _zapisStopu(
+          uid: uid,
+          obdobi: obdobi,
+          pocet: odecty.length,
+          sFotkami: false,
+          formaty: formaty,
+          pobockaKod: elektromer.pobockaKod,
+          elektromerId: elektromer.id,
+        );
+      }
 
       state = const ReportPripraven();
       return odecty.length;
