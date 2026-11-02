@@ -275,6 +275,10 @@ OCR je **pomůcka, ne autorita**: pole je vždy přepisovatelné a bez
 potvrzení tlačítkem se nikam nezapíše. Když se číslo přečíst nepodaří,
 ruční zadání je rovnocenná cesta – ne nouzové řešení.
 
+Hodnota se **opisuje z fotky**, takže fotka musí zůstat vidět i s otevřenou
+klávesnicí. Panel se během psaní stáhne na pole a potvrzení; fotka se
+ukazuje celá a jde přiblížit prsty. Klepnutí na ni klávesnici schová.
+
 Heuristika výběru čísla ([ocr_sluzba.dart](lib/features/nabijeni/application/ocr_sluzba.dart))
 zvýhodňuje čísla na řádku s „kWh", delší čísla a čísla s desetinami.
 Je pokrytá testy, takže se dá ladit podle toho, co konkrétní nabíječky

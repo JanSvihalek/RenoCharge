@@ -92,6 +92,10 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
     with WidgetsBindingObserver {
   final _pole = TextEditingController();
 
+  /// Pole se při otevření klávesnice přesune do menšího panelu. Klíč mu
+  /// zachová stav – nové pole by ztratilo fokus a klávesnice by zajela.
+  final _klicPole = GlobalKey();
+
   /// Začíná se v `pracuje`, protože se rozbíhá kamera. Chvilku to trvá
   /// a prázdná černá plocha bez vysvětlení vypadá jako zaseknutá appka.
   _Faze _faze = _Faze.pracuje;
@@ -370,7 +374,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
       children: [
         Positioned.fill(
           child: switch ((ukazujeSnimek, zivyObraz)) {
-            (true, _) => Image.memory(foto!.bajty, fit: BoxFit.cover),
+            (true, _) => _FotkaKOpisu(foto!, key: ValueKey(foto)),
             (_, true) => _ZivyObraz(kamera!),
             _ => const DecoratedBox(
               decoration: BoxDecoration(
@@ -448,32 +452,60 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
 
   Widget _panelVysledku() {
     final b = context.barvy;
+    // Během psaní musí zůstat vidět fotka: hodnota se opisuje právě z ní.
+    // Panel se proto stáhne na pole a potvrzení.
+    //
+    // Klávesnice se do odsazení panelu nepočítá, tělo obrazovky se o ni
+    // zmenšuje samo (`resizeToAvoidBottomInset`). Dřív se počítala
+    // dvakrát a na fotku nezbylo místo.
+    final piseSe =
+        (_ocrUspelo || _rucniZadavani) &&
+        MediaQuery.viewInsetsOf(context).bottom > 0;
+    final svisle = piseSe ? 12.0 : 20.0;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: b.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
+      padding: EdgeInsets.fromLTRB(20, svisle, 20, svisle),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
-          children: _ocrUspelo ? _obsahPrecteno() : _obsahNeprecteno(),
+          children: piseSe
+              ? _obsahPriPsani()
+              : _ocrUspelo
+              ? _obsahPrecteno()
+              : _obsahNeprecteno(),
         ),
       ),
     );
   }
 
+  Widget _poleHodnoty() => _PoleHodnoty(
+    key: _klicPole,
+    pole: _pole,
+    onZmena: _zahodChybu,
+    napoveda: _ocrUspelo ? null : 'např. ${widget.rezim.priklad}',
+    automatickyFokus: !_ocrUspelo,
+  );
+
+  List<Widget> _obsahPriPsani() => [
+    _poleHodnoty(),
+    ?_chybovyText(),
+    const SizedBox(height: 8),
+    PrimarniTlacitko(
+      popisek: _ocrUspelo ? widget.rezim.potvrzeni : 'Potvrdit ručně',
+      vyska: 58,
+      onTap: _potvrd,
+    ),
+  ];
+
   List<Widget> _obsahPrecteno() => [
     Text('Přečtená hodnota', style: Theme.of(context).textTheme.titleSmall),
     const SizedBox(height: 10),
-    _PoleHodnoty(pole: _pole, onZmena: _zahodChybu),
+    _poleHodnoty(),
     const SizedBox(height: 8),
     _Popisek('Zkontrolujte číslo a v případě potřeby jej opravte.'),
     PuvodFotky(_foto!),
@@ -519,12 +551,7 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
         )
       else ...[
         const SizedBox(height: 12),
-        _PoleHodnoty(
-          pole: _pole,
-          onZmena: _zahodChybu,
-          napoveda: 'např. ${widget.rezim.priklad}',
-          automatickyFokus: true,
-        ),
+        _poleHodnoty(),
         ?_chybovyText(),
         const SizedBox(height: 8),
         PrimarniTlacitko(popisek: 'Potvrdit ručně', vyska: 58, onTap: _potvrd),
@@ -546,6 +573,37 @@ class _FoceniObrazovkaState extends ConsumerState<FoceniObrazovka>
         style: Theme.of(
           context,
         ).textTheme.bodyMedium?.copyWith(color: context.barvy.danger),
+      ),
+    );
+  }
+}
+
+/// Pořízený snímek, ze kterého se dá hodnota opsat: celý, ne oříznutý,
+/// a se zvětšováním prsty. Číslo bývá malá část snímku a oříznutí na
+/// zmenšené ploše nad klávesnicí by ho snadno odřízlo.
+///
+/// Klepnutí schová klávesnici – ta číselná na iPhonu nemá tlačítko
+/// „hotovo" a pod ní jsou schované další volby. Klepnutí, ne dotek:
+/// přibližování prsty klávesnici zavřít nesmí, kvůli tomu se tu přibližuje.
+class _FotkaKOpisu extends StatelessWidget {
+  const _FotkaKOpisu(this.foto, {super.key});
+
+  final PorizenaFotografie foto;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: InteractiveViewer(
+        minScale: 1,
+        maxScale: 6,
+        child: Image.memory(
+          foto.bajty,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+        ),
       ),
     );
   }
@@ -716,6 +774,7 @@ class _HorniPruh extends StatelessWidget {
 /// Pole se stavem počítadla – monospace, vždy přepisovatelné.
 class _PoleHodnoty extends StatelessWidget {
   const _PoleHodnoty({
+    super.key,
     required this.pole,
     required this.onZmena,
     this.napoveda,
