@@ -427,7 +427,8 @@ takže vlastní zapisovač vyšel levněji než výměna knihovny na fotky.
 ## Druhy odběrných míst
 
 Evidence se rozšířila z elektroměrů na **odběrná místa** – v Brně se
-vedle elektřiny odečítá i plyn, voda, klimatizace a nabíječky. Záložka se
+vedle elektřiny odečítá i plyn, voda, klimatizace, nabíječky a hodiny
+v provozu lakovacích boxů. Záložka se
 proto jmenuje *Odběrná místa*.
 
 | `druh` | V aplikaci | Jednotka |
@@ -437,6 +438,7 @@ proto jmenuje *Odběrná místa*.
 | `klimatizace` | Klimatizace (elektroměr na jednotce) | kWh |
 | `nabijecka` | Nabíječky | kWh |
 | `voda` | Voda | m³ |
+| `lakovna` | Lakovna boxy (počitadlo hodin v provozu) | h |
 
 * **Kolekce i třídy se nepřejmenovaly** (`elektromery`, `Elektromer`).
   ID dokumentu je v nalepených QR kódech a přejmenování by znamenalo
@@ -457,9 +459,10 @@ proto jmenuje *Odběrná místa*.
 
 ### Výchozí seznam míst
 
-Místa z tabulky zadavatele (Brno-Slatina: plyn 17, elektřina 23,
-klimatizace 18, nabíječky 18, voda 9 – vodoměry přibyly v druhé verzi
-tabulky) jsou v kódu
+Místa z tabulky zadavatele (Brno-Slatina: plyn 17, elektřina 24,
+klimatizace 19, nabíječky 18, voda 9, lakovna boxy 3 – vodoměry přibyly
+v druhé verzi tabulky, lakovna, MINI 3 a BDC u elektřiny ve třetí) jsou
+v kódu
 ([vychozi_mista.dart](../lib/features/elektromery/domain/vychozi_mista.dart)).
 Servisní účet pro importní skript zadavatel odmítl, takže je zakládá
 přihlášená údržba z aplikace: dokud některé chybí, je v seznamu karta
@@ -471,8 +474,9 @@ se nezaloží znovu pod starým názvem. Kdyby místo mezitím založil někdo
 jiný, zápis je pro pravidla úprava se změněným `vytvoreno_at` a odmítnou
 ho – přepsat cizí `posledni_odecet` se tím nedá.
 
-V tabulce bylo u elektřiny dvakrát „BDC, Moto" – podle zadavatele
-omylem, založí se jednou.
+Další místa přidaná do seznamu nabídne karta sama, stávajících se to
+nedotkne. BDC a „BDC, Moto" u elektřiny jsou dvě místa; v první tabulce
+bylo omylem dvakrát „BDC, Moto".
 
 ### Název aplikace
 

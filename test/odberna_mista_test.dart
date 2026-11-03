@@ -67,12 +67,13 @@ void main() {
       expect(DruhMista.zKlice('teplo'), DruhMista.elektrina);
     });
 
-    test('plyn se odečítá v m³, ostatní v kWh', () {
+    test('každý druh má svou jednotku', () {
       expect(DruhMista.plyn.jednotka, 'm³');
       expect(DruhMista.elektrina.jednotka, 'kWh');
       expect(DruhMista.klimatizace.jednotka, 'kWh');
       expect(DruhMista.nabijecka.jednotka, 'kWh');
       expect(DruhMista.voda.jednotka, 'm³');
+      expect(DruhMista.lakovna.jednotka, 'h');
     });
 
     test('místo bez druhu je elektřina', () {
@@ -113,18 +114,15 @@ void main() {
   });
 
   group('výchozí seznam míst', () {
-    test('má všech 85 míst z tabulky zadavatele', () {
+    test('má všech 90 míst z tabulky zadavatele', () {
       int pocet(DruhMista d) => vychoziMista.where((m) => m.druh == d).length;
       expect(pocet(DruhMista.plyn), 17);
-      expect(
-        pocet(DruhMista.elektrina),
-        23,
-        reason: '24 řádků bez zdvojeného BDC, Moto',
-      );
-      expect(pocet(DruhMista.klimatizace), 18);
+      expect(pocet(DruhMista.elektrina), 24);
+      expect(pocet(DruhMista.klimatizace), 19);
       expect(pocet(DruhMista.nabijecka), 18);
       expect(pocet(DruhMista.voda), 9);
-      expect(vychoziMista, hasLength(85));
+      expect(pocet(DruhMista.lakovna), 3);
+      expect(vychoziMista, hasLength(90));
     });
 
     test('všechna jsou v Brně', () {
@@ -162,11 +160,27 @@ void main() {
       }
     });
 
-    test('„BDC, Moto" je u elektřiny jen jednou', () {
-      final bdc = vychoziMista.where(
-        (m) => m.druh == DruhMista.elektrina && m.nazev == 'BDC, Moto',
+    // Dvě různá místa. V první tabulce bylo omylem dvakrát „BDC, Moto".
+    test('BDC a „BDC, Moto" jsou u elektřiny každé jednou', () {
+      int pocet(String nazev) => vychoziMista
+          .where((m) => m.druh == DruhMista.elektrina && m.nazev == nazev)
+          .length;
+      expect(pocet('BDC'), 1);
+      expect(pocet('BDC, Moto'), 1);
+    });
+
+    // Už založená místa se hledají podle ID. Kdyby se odvozování změnilo,
+    // nabídla by je karta k založení znovu.
+    test('ID nových míst', () {
+      String id(DruhMista d, String nazev) =>
+          VychoziMisto(Pobocka.bsl, d, nazev).id;
+
+      expect(id(DruhMista.elektrina, 'BDC'), 'bsl-elektrina-bdc');
+      expect(
+        id(DruhMista.lakovna, 'Přípr. Stání 1'),
+        'bsl-lakovna-pripr-stani-1',
       );
-      expect(bdc, hasLength(1));
+      expect(id(DruhMista.lakovna, 'Lakovací Box'), 'bsl-lakovna-lakovaci-box');
     });
   });
 }

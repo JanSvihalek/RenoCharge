@@ -42,9 +42,10 @@ class VychoziMisto {
 /// tlačítkem v seznamu, dokud některé chybí. Další místa se přidávají
 /// formulářem.
 ///
-/// V tabulce bylo „BDC, Moto" u elektřiny dvakrát – podle zadavatele
-/// omylem, je tu jednou. Vodoměry přibyly v druhé verzi tabulky
-/// (říjen 2026); názvy jsou přesně podle ní, i „BMW salon" s malým s.
+/// Vodoměry přibyly v druhé verzi tabulky (říjen 2026), lakovací boxy,
+/// MINI 3 a BDC u elektřiny ve třetí (listopad 2026). Názvy jsou přesně
+/// podle tabulek, i „BMW salon" s malým s. BDC a „BDC, Moto" u elektřiny
+/// jsou dvě místa; v první tabulce bylo omylem dvakrát „BDC, Moto".
 ///
 /// Pevná ID se odvozují z druhu a názvu, takže doplnění dalších míst
 /// stávající nezdvojí – karta v aplikaci nabídne jen ta chybějící.
@@ -90,6 +91,7 @@ const List<VychoziMisto> vychoziMista = [
   VychoziMisto(Pobocka.bsl, DruhMista.elektrina, 'Nájemník Přístavek'),
   VychoziMisto(Pobocka.bsl, DruhMista.elektrina, 'Ostraha'),
   VychoziMisto(Pobocka.bsl, DruhMista.elektrina, 'Bistro kuchyň'),
+  VychoziMisto(Pobocka.bsl, DruhMista.elektrina, 'BDC'),
   VychoziMisto(Pobocka.bsl, DruhMista.elektrina, 'Víno'),
   VychoziMisto(Pobocka.bsl, DruhMista.elektrina, 'Bistro bojler'),
 
@@ -112,6 +114,7 @@ const List<VychoziMisto> vychoziMista = [
   VychoziMisto(Pobocka.bsl, DruhMista.klimatizace, 'MINI 1'),
   VychoziMisto(Pobocka.bsl, DruhMista.klimatizace, 'MINI 2'),
   VychoziMisto(Pobocka.bsl, DruhMista.klimatizace, 'Účtárna'),
+  VychoziMisto(Pobocka.bsl, DruhMista.klimatizace, 'MINI 3'),
 
   // ── Nabíječky ──
   VychoziMisto(Pobocka.bsl, DruhMista.nabijecka, 'Parkoviště 1'),
@@ -143,4 +146,9 @@ const List<VychoziMisto> vychoziMista = [
   VychoziMisto(Pobocka.bsl, DruhMista.voda, 'OMKO'),
   VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Patro Šmahova'),
   VychoziMisto(Pobocka.bsl, DruhMista.voda, 'Drážní nájemník'),
+
+  // ── Lakovna boxy ──
+  VychoziMisto(Pobocka.bsl, DruhMista.lakovna, 'Přípr. Stání 1'),
+  VychoziMisto(Pobocka.bsl, DruhMista.lakovna, 'Přípr. Stání 2'),
+  VychoziMisto(Pobocka.bsl, DruhMista.lakovna, 'Lakovací Box'),
 ];

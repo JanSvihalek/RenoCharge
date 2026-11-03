@@ -11,7 +11,11 @@ enum DruhMista {
   /// ji vede jako samostatnou skupinu.
   klimatizace('klimatizace', 'Klimatizace', 'kWh'),
   nabijecka('nabijecka', 'Nabíječky', 'kWh'),
-  voda('voda', 'Voda', 'm³');
+  voda('voda', 'Voda', 'm³'),
+
+  /// Lakovací boxy: nesleduje se odběr, ale počitadlo hodin v provozu.
+  /// Odečítá se a dopočítává stejně jako ostatní, jen v hodinách.
+  lakovna('lakovna', 'Lakovna boxy', 'h');
 
   const DruhMista(this.klic, this.nazev, this.jednotka);
 
