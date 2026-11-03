@@ -11,13 +11,6 @@ import '../application/report_controller.dart';
 import '../domain/zaznam_exportu.dart';
 import 'export_panel.dart';
 
-/// `1 místo`, `3 místa`, `23 míst`.
-String _pocetMist(int pocet) => switch (pocet) {
-  1 => '1 místo',
-  >= 2 && <= 4 => '$pocet místa',
-  _ => '$pocet míst',
-};
-
 /// `1 odečet`, `3 odečty`, `5 odečtů`.
 String _pocetOdectu(int pocet) => switch (pocet) {
   1 => '1 odečet',
@@ -78,7 +71,7 @@ class ExportStavuPanel extends ConsumerWidget {
       podtitulek: [
         pobocka.popisek,
         ?druh?.nazev,
-        _pocetMist(mista.length),
+        Format.pocetMist(mista.length),
       ].join(' · '),
       popisPdf: 'Přehled míst se souhrnem',
       popisExcel: 'Tabulka stavů k dopočítání',
@@ -87,7 +80,7 @@ class ExportStavuPanel extends ConsumerWidget {
           ? null
           : (
               obdobi: nabidka.obdobi,
-              popis: '${_pocetMist(nabidka.pocet)} s odečtem',
+              popis: '${Format.pocetMist(nabidka.pocet)} s odečtem',
             ),
       reporty: [
         for (final e in exporty ?? const <ZaznamExportu>[])
@@ -95,7 +88,7 @@ class ExportStavuPanel extends ConsumerWidget {
             export: e,
             pocet: e.pocetZaznamu == 0
                 ? 'bez odečtů'
-                : '${_pocetMist(e.pocetZaznamu)} s odečtem',
+                : '${Format.pocetMist(e.pocetZaznamu)} s odečtem',
           ),
       ],
       onVytvor: (obdobi, formaty, _) => rizeni.vytvorStavy(

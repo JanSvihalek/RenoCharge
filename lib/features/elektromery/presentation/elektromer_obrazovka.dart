@@ -129,7 +129,7 @@ class _Obsah extends ConsumerWidget {
           const SizedBox(height: 16),
           PrimarniTlacitko(
             popisek: 'Zapsat odečet',
-            ikona: Icons.photo_camera_outlined,
+            ikona: Icons.edit_outlined,
             onTap: () => otevriZapisOdectu(context, ref, elektromer),
           ),
         ],

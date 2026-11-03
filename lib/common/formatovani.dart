@@ -62,6 +62,13 @@ abstract final class Format {
     return '$h h ${m.toString().padLeft(2, '0')} min';
   }
 
+  /// `1 místo`, `3 místa`, `23 míst`.
+  static String pocetMist(int pocet) => switch (pocet) {
+    1 => '1 místo',
+    >= 2 && <= 4 => '$pocet místa',
+    _ => '$pocet míst',
+  };
+
   /// Převede text z pole na číslo. Přijímá desetinnou čárku i tečku,
   /// mezery i pevné mezery jako oddělovač tisíců. Vrací `null`, pokud
   /// hodnota nedává smysl.

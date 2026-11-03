@@ -181,6 +181,14 @@ rozejít se skutečností.
 >
 > Pobočka a druh jsou dva rozbalovací seznamy vedle sebe; řada čipů
 > s druhy zabírala na telefonu dva řádky.
+>
+> **Skupiny (listopad 2026):** při devadesáti místech byl i takový seznam
+> dlouhý. Místa jsou proto ve **sbalovacích skupinách podle druhu**,
+> s průběhem „odečteno 8 z 24" na každé. Ve výchozím stavu je vše sbalené,
+> hotový druh zezelená. Rozbalení vydrží po dobu běhu aplikace. Hledání
+> rozbalí všechno, výsledek ve sbalené skupině by nebyl výsledek. Přepínač
+> *Jen neodečtené* sbalení nechává a jen schová hotové, takže jde obcházet
+> po druzích. Se zvoleným druhem skupina není, jde rovnou seznam.
 
 ### 2. Detail elektroměru
 

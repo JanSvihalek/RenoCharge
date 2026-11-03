@@ -259,10 +259,14 @@ class _StavObchuzky extends StatelessWidget {
   }
 }
 
-/// Místa v pevném pořadí: podle druhu, uvnitř podle umístění (tak je
-/// řadí už Firestore). Zápis odečtu s řádkem nehne, jen mu změní
-/// značku – člověk v obchůzce neztratí, kde byl.
-class _Seznam extends StatelessWidget {
+/// Místa ve sbalovacích skupinách podle druhu, uvnitř podle umístění (tak
+/// je řadí už Firestore). Zápis odečtu s řádkem nehne, jen mu změní značku
+/// – člověk v obchůzce neztratí, kde byl.
+///
+/// Se zvoleným druhem skupina není potřeba, jde rovnou seznam. Při hledání
+/// je rozbalené všechno: výsledek schovaný ve sbalené skupině by nebyl
+/// výsledek.
+class _Seznam extends ConsumerWidget {
   const _Seznam({
     required this.vsechny,
     required this.dotaz,
@@ -281,7 +285,7 @@ class _Seznam extends StatelessWidget {
   bool _hotovo(Elektromer e) => obchuzka?.zahrnuje(e) ?? false;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final zvoleny = druh;
     if (vsechny.isEmpty) {
       return PrazdnyStav(
@@ -328,33 +332,134 @@ class _Seznam extends StatelessWidget {
     }
 
     Widget radek(Elektromer e) => _Radek(elektromer: e, hotovo: _hotovo(e));
-    final skupiny = zvoleny == null
-        ? [
-            for (final d in DruhMista.values)
-              (
-                d,
-                [
-                  for (final e in aktivni)
-                    if (e.druh == d) e,
-                ],
-              ),
-          ]
-        : [(zvoleny, aktivni)];
+    final rozbalene = ref.watch(rozbaleneSkupinyProvider);
+    final hledaSe = dotaz.trim().isNotEmpty;
+    bool rozbalena(String klic) => hledaSe || rozbalene.contains(klic);
+    void prepni(String klic) =>
+        ref.read(rozbaleneSkupinyProvider.notifier).prepni(klic);
 
     return Column(
       children: [
-        // U „všech druhů" nadpis nad každým druhem – jinak by se tři
-        // „Servisy" pod sebou nedaly rozlišit.
-        for (final (d, mista) in skupiny)
-          if (mista.isNotEmpty) ...[
-            if (zvoleny == null) NadpisSekce(d.nazev),
-            for (final e in mista) radek(e),
-          ],
+        if (zvoleny != null)
+          for (final e in aktivni) radek(e)
+        else
+          for (final d in DruhMista.values)
+            if (aktivni.any((e) => e.druh == d)) ...[
+              _HlavickaSkupiny(
+                ikona: ikonaDruhu(d),
+                nazev: d.nazev,
+                popis: _prubehDruhu(d),
+                hotovo: _jeDruhHotovy(d),
+                rozbalena: rozbalena(d.klic),
+                onTap: hledaSe ? null : () => prepni(d.klic),
+              ),
+              if (rozbalena(d.klic))
+                for (final e in aktivni)
+                  if (e.druh == d) radek(e),
+            ],
         if (vyrazene.isNotEmpty) ...[
-          const NadpisSekce('Vyřazené'),
-          for (final e in vyrazene) radek(e),
+          _HlavickaSkupiny(
+            ikona: Icons.inventory_2_outlined,
+            nazev: 'Vyřazené',
+            popis: Format.pocetMist(vyrazene.length),
+            rozbalena: rozbalena(RozbaleneSkupiny.klicVyrazenych),
+            onTap: hledaSe
+                ? null
+                : () => prepni(RozbaleneSkupiny.klicVyrazenych),
+          ),
+          if (rozbalena(RozbaleneSkupiny.klicVyrazenych))
+            for (final e in vyrazene) radek(e),
         ],
       ],
+    );
+  }
+
+  /// Aktivní místa druhu bez ohledu na hledání a přepínač – průběh říká,
+  /// jak je na tom celý druh, ne to, co je zrovna vidět.
+  Iterable<Elektromer> _aktivniDruhu(DruhMista d) =>
+      vsechny.where((e) => e.aktivni && e.druh == d);
+
+  String _prubehDruhu(DruhMista d) {
+    final mista = _aktivniDruhu(d);
+    return obchuzka == null
+        ? Format.pocetMist(mista.length)
+        : 'odečteno ${mista.where(_hotovo).length} z ${mista.length}';
+  }
+
+  bool _jeDruhHotovy(DruhMista d) => _aktivniDruhu(d).every(_hotovo);
+}
+
+/// Sbalovací řádek skupiny: co v ní je, jak daleko je obchůzka a šipka.
+class _HlavickaSkupiny extends StatelessWidget {
+  const _HlavickaSkupiny({
+    required this.ikona,
+    required this.nazev,
+    required this.popis,
+    required this.rozbalena,
+    required this.onTap,
+    this.hotovo = false,
+  });
+
+  final IconData ikona;
+  final String nazev;
+  final String popis;
+  final bool rozbalena;
+  final bool hotovo;
+
+  /// `null` při hledání: skupiny jsou rozbalené a sbalit nejdou.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = context.barvy;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Semantics(
+        button: onTap != null,
+        expanded: rozbalena,
+        label: '$nazev, $popis',
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: Rozmery.vyskaRadku),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: b.surface2,
+              borderRadius: BorderRadius.circular(Rozmery.radiusPolozky),
+            ),
+            child: Row(
+              children: [
+                Icon(ikona, size: 22, color: hotovo ? b.penize : b.textDim),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(nazev, style: Theme.of(context).textTheme.bodyLarge),
+                      const SizedBox(height: 2),
+                      Text(
+                        popis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: hotovo ? b.penize : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onTap != null)
+                  Icon(
+                    rozbalena ? Icons.expand_less : Icons.expand_more,
+                    size: 24,
+                    color: b.textDim,
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -432,7 +537,7 @@ class _Radek extends ConsumerWidget {
                 IkonoveTlacitko(
                   ikona: hotovo
                       ? Icons.check_circle_outline
-                      : Icons.photo_camera_outlined,
+                      : Icons.edit_outlined,
                   barvaIkony: hotovo ? b.penize : b.accentText,
                   pozadi: hotovo ? b.surface2 : b.accent,
                   popisPristupnosti: 'Zapsat odečet: ${elektromer.nazev}',

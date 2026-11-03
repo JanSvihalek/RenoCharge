@@ -64,6 +64,24 @@ final jenNeodecteneProvider = NotifierProvider<JenNeodectene, bool>(
   JenNeodectene.new,
 );
 
+/// Rozbalené skupiny v seznamu míst, klíčem je [DruhMista.klic], případně
+/// [klicVyrazenych]. Ve výchozím stavu je všechno sbalené: míst je kolem
+/// devadesáti a typická obchůzka se týká jednoho druhu. Volba vydrží po
+/// celou dobu běhu aplikace, ať se po návratu z detailu nic nezavře.
+class RozbaleneSkupiny extends Notifier<Set<String>> {
+  static const klicVyrazenych = 'vyrazene';
+
+  @override
+  Set<String> build() => const {};
+
+  void prepni(String klic) => state = state.contains(klic)
+      ? ({...state}..remove(klic))
+      : {...state, klic};
+}
+
+final rozbaleneSkupinyProvider =
+    NotifierProvider<RozbaleneSkupiny, Set<String>>(RozbaleneSkupiny.new);
+
 /// Místa z výchozího seznamu, která na zvolené pobočce ještě nejsou.
 /// Dokud nějaké chybí, nabízí seznam jejich založení.
 ///
